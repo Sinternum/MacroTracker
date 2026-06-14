@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-display: "Outfit", var(--font-sans);
+  
+  --color-ios-bg: #090d16;
+  --color-ios-surface: #121826;
+  --color-ios-surface-hover: #1b2336;
+  --color-ios-border: #1e293b;
+  --color-accent-teal: #06b6d4;
+  --color-accent-violet: #8b5cf6;
+}
+
+@layer base {
+  html, body {
+    background-color: var(--color-ios-bg);
+    color: #f1f5f9;
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+    overflow-x: hidden;
+    /* Comportement natif iOS strict */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  /* Permettre la sélection de texte uniquement dans les inputs */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* Utilities spécifiques iOS Safe Areas */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility h-safe-screen {
+  height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+@utility min-h-safe-screen {
+  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+/* Scroll native avec inertie iOS */
+.ios-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Cache la scrollbar par défaut sur iOS pour un look d'application native */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
