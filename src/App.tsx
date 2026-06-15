@@ -20,7 +20,7 @@ function App() {
   }, [init]);
 
   return (
-    <div className="h-[100dvh] w-full bg-black text-slate-100 flex flex-col overflow-hidden select-none touch-manipulation">
+    <div className="h-[100dvh] w-full bg-ios-bg text-slate-100 flex flex-col overflow-hidden select-none touch-manipulation">
       
       {/* Zone de Contenu Principal (remplit l'espace au-dessus de la Tab Bar) */}
       <div className="flex-1 flex flex-col min-h-0 relative">

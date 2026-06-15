@@ -163,7 +163,7 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 bg-ios-bg overflow-hidden">
       
       {/* Header fixe */}
       <div className="bg-zinc-950/80 backdrop-blur-md pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 border-b border-zinc-900 text-center shrink-0">

@@ -269,7 +269,7 @@ export const AddView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-hidden relative">
+    <div className="flex-1 flex flex-col min-h-0 bg-ios-bg overflow-hidden relative">
       
       {/* Segmented Control Header style iOS */}
       <div className="bg-zinc-950/80 backdrop-blur-md pt-[calc(env(safe-area-inset-top)+0.875rem)] pb-3.5 px-4 border-b border-zinc-900 shrink-0">
