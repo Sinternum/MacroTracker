@@ -119,7 +119,7 @@ export const Journal: React.FC = () => {
         carbs: food.carbs * factor,
         fat: food.fat * factor,
       };
-    } else {
+    } else if (entry.type === 'recipe') {
       const recipe = recipes.find(r => r.id === entry.recipeId);
       if (!recipe) return null;
       const recipeMacros = calculateRecipeMacrosPer100g(recipe, customFoods);
@@ -131,7 +131,16 @@ export const Journal: React.FC = () => {
         carbs: recipeMacros.carbs * factor,
         fat: recipeMacros.fat * factor,
       };
+    } else if (entry.type === 'quick-add' && entry.quickAdd) {
+      return {
+        name: "Ajout rapide",
+        calories: entry.quickAdd.calories,
+        protein: entry.quickAdd.protein,
+        carbs: entry.quickAdd.carbs,
+        fat: entry.quickAdd.fat,
+      };
     }
+    return null;
   };
 
   return (
@@ -305,9 +314,11 @@ export const Journal: React.FC = () => {
                     <div className="space-y-1 flex-1 pr-4 min-w-0">
                       <p className="text-sm font-semibold text-slate-200 truncate">{details.name}</p>
                       <div className="flex items-center space-x-3 text-xs text-slate-500 font-medium">
-                        <span className="bg-zinc-950 px-2 py-0.5 rounded-md text-[10px] text-slate-400 tabular-nums">
-                          {entry.weight}g
-                        </span>
+                        {entry.type !== 'quick-add' && (
+                          <span className="bg-zinc-950 px-2 py-0.5 rounded-md text-[10px] text-slate-400 tabular-nums">
+                            {entry.weight}g
+                          </span>
+                        )}
                         <span className="tabular-nums font-semibold text-slate-400">
                           {Math.round(details.calories)} kcal
                         </span>
