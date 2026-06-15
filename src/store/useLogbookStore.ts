@@ -45,7 +45,7 @@ export interface LogbookState {
   updateDailyWeight: (date: string, weight: number | null) => Promise<void>;
 
   // Actions de gestion des aliments personnalisés
-  addCustomFood: (food: Omit<CustomFood, 'id'>) => Promise<void>;
+  addCustomFood: (food: Omit<CustomFood, 'id'>) => Promise<number>;
   deleteCustomFood: (id: number) => Promise<void>;
 
   // Actions de gestion des recettes
@@ -54,6 +54,7 @@ export interface LogbookState {
 
   // Actions des paramètres
   updateSettings: (newSettings: Partial<Omit<UserSettings, 'id'>>) => Promise<void>;
+  updateMealCalorieTarget: (mealName: string, targetCalories: number | null) => Promise<void>;
 
   // Algorithmes métaboliques
   recalculateAllEMA: () => Promise<void>;
@@ -92,7 +93,8 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
           calorieGoalMode: 'dynamic',
           manualCalorieGoal: null,
           targetWeight: null,
-          targetWeightDate: null
+          targetWeightDate: null,
+          mealTargets: {}
         };
         await db.settings.add(settings);
       } else {
@@ -112,6 +114,10 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
         }
         if (settings.targetWeightDate === undefined) {
           settings.targetWeightDate = null;
+          updated = true;
+        }
+        if (settings.mealTargets === undefined) {
+          settings.mealTargets = {};
           updated = true;
         }
         if (updated) {
@@ -256,11 +262,13 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
   addCustomFood: async (food: Omit<CustomFood, 'id'>) => {
     set({ isLoading: true, error: null });
     try {
-      await db.customFoods.add(food);
+      const id = await db.customFoods.add(food);
       const customFoods = await db.customFoods.toArray();
       set({ customFoods });
+      return id as number;
     } catch (err: any) {
       set({ error: err.message || "Erreur lors de l'ajout de l'aliment personnalisé." });
+      throw err;
     } finally {
       set({ isLoading: false });
     }
@@ -324,6 +332,28 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
       set({ settings: updated });
     } catch (err: any) {
       set({ error: err.message || 'Erreur lors de la mise à jour des paramètres.' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  updateMealCalorieTarget: async (mealName: string, targetCalories: number | null) => {
+    set({ isLoading: true, error: null });
+    try {
+      const current = await db.settings.get(1);
+      if (current) {
+        const mealTargets = current.mealTargets || {};
+        if (targetCalories === null) {
+          delete mealTargets[mealName];
+        } else {
+          mealTargets[mealName] = targetCalories;
+        }
+        current.mealTargets = mealTargets;
+        await db.settings.put(current);
+        set({ settings: current });
+      }
+    } catch (err: any) {
+      set({ error: err.message || 'Erreur lors de la mise à jour de la cible calorique du repas.' });
     } finally {
       set({ isLoading: false });
     }

@@ -6,7 +6,8 @@ import {
   X, 
   Utensils, 
   Flame, 
-  Info
+  Info,
+  Link as LinkIcon
 } from 'lucide-react';
 import { type RecipeIngredient } from '../../db';
 import { calculateRecipeMacrosPer100g } from '../../utils/metabolism';
@@ -19,7 +20,9 @@ export const AddView: React.FC = () => {
     addEntry,
     addCustomFood,
     addRecipe,
-    isLoading
+    isLoading,
+    currentDay,
+    settings
   } = useLogbookStore();
 
   // Navigation par sous-onglets
@@ -60,6 +63,68 @@ export const AddView: React.FC = () => {
   const [quickAddFat, setQuickAddFat] = useState('');
   const [quickAddSuccess, setQuickAddSuccess] = useState(false);
 
+  // Assistant repas et création
+  const getDefaultMealByTime = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 11) return 'Petit-déjeuner';
+    if (hour >= 11 && hour < 15) return 'Déjeuner';
+    if (hour >= 18 && hour < 22) return 'Dîner';
+    return 'En-cas';
+  };
+
+  const getAvailableMeals = () => {
+    const baseMeals = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'En-cas'];
+    const loggedMeals = currentDay?.entries.map(e => e.meal).filter((m): m is string => !!m) || [];
+    const settingsMeals = settings?.mealTargets ? Object.keys(settings.mealTargets) : [];
+    return Array.from(new Set([...baseMeals, ...loggedMeals, ...settingsMeals]));
+  };
+
+  const [selectedMeal, setSelectedMeal] = useState<string>(getDefaultMealByTime());
+  const [customMealName, setCustomMealName] = useState<string>('');
+  const [quickAddMeal, setQuickAddMeal] = useState<string>(getDefaultMealByTime());
+  const [quickAddCustomMealName, setQuickAddCustomMealName] = useState<string>('');
+  const [newFoodLink, setNewFoodLink] = useState<string>('');
+
+  // États de création d'aliment inline dans la recette
+  const [isCreatingFoodInline, setIsCreatingFoodInline] = useState(false);
+  const [inlineFoodName, setInlineFoodName] = useState('');
+  const [inlineFoodCalories, setInlineFoodCalories] = useState('');
+  const [inlineFoodProtein, setInlineFoodProtein] = useState('');
+  const [inlineFoodCarbs, setInlineFoodCarbs] = useState('');
+  const [inlineFoodFat, setInlineFoodFat] = useState('');
+  const [inlineFoodLink, setInlineFoodLink] = useState('');
+
+  const resetInlineFoodForm = () => {
+    setInlineFoodName('');
+    setInlineFoodCalories('');
+    setInlineFoodProtein('');
+    setInlineFoodCarbs('');
+    setInlineFoodFat('');
+    setInlineFoodLink('');
+  };
+
+  const handleCreateFoodInlineSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inlineFoodName || !inlineFoodCalories) return;
+
+    try {
+      const newId = await addCustomFood({
+        name: inlineFoodName,
+        calories: parseFloat(inlineFoodCalories) || 0,
+        protein: parseFloat(inlineFoodProtein) || 0,
+        carbs: parseFloat(inlineFoodCarbs) || 0,
+        fat: parseFloat(inlineFoodFat) || 0,
+        link: inlineFoodLink.trim() || undefined,
+      });
+
+      setSelectedIngredientId(newId.toString());
+      setIsCreatingFoodInline(false);
+      resetInlineFoodForm();
+    } catch (err) {
+      console.error("Erreur lors de la création d'aliment inline :", err);
+    }
+  };
+
   // ==========================================
   // ACTIONS ET HANDLERS
   // ==========================================
@@ -76,23 +141,29 @@ export const AddView: React.FC = () => {
     const weight = parseFloat(portionWeight);
     if (isNaN(weight) || weight <= 0) return;
 
+    const finalMeal = selectedMeal === 'custom' ? (customMealName.trim() || 'Repas personnalisé') : selectedMeal;
+
     if (selectedItem.type === 'food') {
       await addEntry(selectedDate, {
         type: 'food',
         foodId: selectedItem.id,
         weight,
+        meal: finalMeal,
       });
     } else {
       await addEntry(selectedDate, {
         type: 'recipe',
         recipeId: selectedItem.id,
         weight,
+        meal: finalMeal,
       });
     }
 
     // Reset modale
     setSelectedItem(null);
     setPortionWeight('');
+    setSelectedMeal(getDefaultMealByTime());
+    setCustomMealName('');
   };
 
   // Créer un aliment personnalisé
@@ -106,6 +177,7 @@ export const AddView: React.FC = () => {
       protein: parseFloat(newFoodProtein) || 0,
       carbs: parseFloat(newFoodCarbs) || 0,
       fat: parseFloat(newFoodFat) || 0,
+      link: newFoodLink.trim() || undefined,
     });
 
     // Reset formulaire
@@ -115,6 +187,7 @@ export const AddView: React.FC = () => {
     setNewFoodProtein('');
     setNewFoodCarbs('');
     setNewFoodFat('');
+    setNewFoodLink('');
   };
 
   // Ajouter un ingrédient dans la recette temporaire
@@ -173,10 +246,13 @@ export const AddView: React.FC = () => {
 
     if (calories === 0 && protein === 0 && carbs === 0 && fat === 0) return;
 
+    const finalMeal = quickAddMeal === 'custom' ? (quickAddCustomMealName.trim() || 'Repas personnalisé') : quickAddMeal;
+
     await addEntry(selectedDate, {
       type: 'quick-add',
       weight: 100,
       quickAdd: { calories, protein, carbs, fat },
+      meal: finalMeal,
     });
 
     // Indiquer le succès temporairement
@@ -188,6 +264,8 @@ export const AddView: React.FC = () => {
     setQuickAddProtein('');
     setQuickAddCarbs('');
     setQuickAddFat('');
+    setQuickAddMeal(getDefaultMealByTime());
+    setQuickAddCustomMealName('');
   };
 
   return (
@@ -278,8 +356,22 @@ export const AddView: React.FC = () => {
                     onClick={() => setSelectedItem({ id: food.id!, name: food.name, type: 'food' })}
                     className="bg-zinc-900/50 border border-zinc-800/80 hover:bg-zinc-900 hover:border-zinc-700/60 rounded-2xl p-4 flex justify-between items-center cursor-pointer transition active:scale-[0.99] duration-100"
                   >
-                    <div className="space-y-1 pr-2 min-w-0">
-                      <p className="text-sm font-semibold text-slate-200 truncate">{food.name}</p>
+                    <div className="space-y-1 pr-2 min-w-0 flex-1">
+                      <div className="flex items-center space-x-1.5">
+                        <p className="text-sm font-semibold text-slate-200 truncate">{food.name}</p>
+                        {food.link && (
+                          <a 
+                            href={food.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1 bg-zinc-950 text-accent-teal hover:bg-zinc-800 hover:text-cyan-400 rounded-md transition"
+                            title="Voir la source"
+                          >
+                            <LinkIcon className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 font-semibold tabular-nums">
                         {food.calories} kcal <span className="text-slate-600">•</span> P: {food.protein}g <span className="text-slate-600">•</span> G: {food.carbs}g <span className="text-slate-600">•</span> L: {food.fat}g
                       </p>
@@ -419,6 +511,32 @@ export const AddView: React.FC = () => {
               </div>
             </div>
 
+            {/* Sélecteur de repas Quick Add */}
+            <div className="space-y-2 bg-zinc-900/40 p-4 border border-zinc-800/80 rounded-2xl">
+              <label className="text-xs font-semibold text-slate-400">Repas de la journée</label>
+              <select
+                value={quickAddMeal}
+                onChange={(e) => setQuickAddMeal(e.target.value)}
+                className="w-full bg-black border border-zinc-850 rounded-xl px-3 py-2.5 text-xs text-slate-300 focus:outline-none font-semibold"
+              >
+                {getAvailableMeals().map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+                <option value="custom">+ Autre repas...</option>
+              </select>
+
+              {quickAddMeal === 'custom' && (
+                <input
+                  type="text"
+                  required
+                  placeholder="Nom du repas (ex: Collation, Repas 5)"
+                  value={quickAddCustomMealName}
+                  onChange={(e) => setQuickAddCustomMealName(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none transition mt-2 font-medium"
+                />
+              )}
+            </div>
+
             {/* Bouton de Validation */}
             <button
               type="submit"
@@ -504,6 +622,32 @@ export const AddView: React.FC = () => {
               )}
 
               <form onSubmit={handleAddEntrySubmit} className="space-y-4">
+                {/* Sélecteur de repas */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400">Repas de la journée</label>
+                  <select
+                    value={selectedMeal}
+                    onChange={(e) => setSelectedMeal(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold"
+                  >
+                    {getAvailableMeals().map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                    <option value="custom">+ Nouveau repas...</option>
+                  </select>
+
+                  {selectedMeal === 'custom' && (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Nom du repas (ex: Collation, Repas 5)"
+                      value={customMealName}
+                      onChange={(e) => setCustomMealName(e.target.value)}
+                      className="w-full bg-black border border-zinc-850 rounded-2xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-accent-teal transition mt-2 font-medium"
+                    />
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-400">Poids consommé (grammes)</label>
                   <div className="relative">
@@ -626,6 +770,18 @@ export const AddView: React.FC = () => {
                 </div>
               </div>
 
+              {/* Lien internet / Source (optionnel) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Lien internet / Source (optionnel)</label>
+                <input
+                  type="url"
+                  placeholder="Ex: https://..."
+                  value={newFoodLink}
+                  onChange={(e) => setNewFoodLink(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-medium"
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -690,6 +846,15 @@ export const AddView: React.FC = () => {
                       </option>
                     ))}
                   </select>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingFoodInline(true)}
+                    className="w-full mt-2 py-2 bg-zinc-900/60 border border-zinc-850 hover:bg-zinc-800/80 text-[10px] font-semibold rounded-xl text-accent-teal transition active:scale-95 flex items-center justify-center space-x-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Créer un aliment inexistant</span>
+                  </button>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -726,7 +891,19 @@ export const AddView: React.FC = () => {
                       const food = customFoods.find(f => f.id === ing.foodId);
                       return (
                         <div key={ing.foodId} className="flex justify-between items-center bg-zinc-900 px-3 py-2 rounded-xl text-xs">
-                          <span className="text-slate-300 font-medium truncate max-w-[200px]">{food?.name}</span>
+                          <div className="flex items-center space-x-1.5 truncate max-w-[200px]">
+                            <span className="text-slate-300 font-medium truncate">{food?.name}</span>
+                            {food?.link && (
+                              <a 
+                                href={food.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-accent-teal hover:text-cyan-400"
+                              >
+                                <LinkIcon className="h-3 w-3 inline" />
+                              </a>
+                            )}
+                          </div>
                           <div className="flex items-center space-x-3 shrink-0">
                             <span className="font-bold text-slate-400 tabular-nums">{ing.rawWeight}g cru</span>
                             <button
@@ -789,6 +966,125 @@ export const AddView: React.FC = () => {
                 Créer la Recette
               </button>
 
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODALE : CRÉATION ALIMENT INLINE (DANS LA RECETTE)
+         ========================================== */}
+      {isCreatingFoodInline && (
+        <div className="fixed inset-0 z-55 bg-black/70 backdrop-blur-sm flex items-end justify-center">
+          <div className="bg-zinc-950 border-t border-zinc-800 w-full max-w-md rounded-t-3xl p-6 space-y-6 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-200">
+            
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="text-lg font-display font-extrabold text-slate-100">Nouvel Aliment (Ingrédient)</h4>
+                <p className="text-[10px] text-slate-500 font-semibold">Saisie rapide - Valeurs pour 100g</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsCreatingFoodInline(false);
+                  resetInlineFoodForm();
+                }}
+                className="p-1.5 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateFoodInlineSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Nom de l'aliment</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Ingrédient secret"
+                  value={inlineFoodName}
+                  onChange={(e) => setInlineFoodName(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Calories (kcal)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
+                    required
+                    placeholder="0"
+                    value={inlineFoodCalories}
+                    onChange={(e) => setInlineFoodCalories(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold text-center"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Protéines (g)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
+                    required
+                    placeholder="0"
+                    value={inlineFoodProtein}
+                    onChange={(e) => setInlineFoodProtein(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold text-center"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Glucides (g)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
+                    required
+                    placeholder="0"
+                    value={inlineFoodCarbs}
+                    onChange={(e) => setInlineFoodCarbs(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold text-center"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Lipides (g)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
+                    required
+                    placeholder="0"
+                    value={inlineFoodFat}
+                    onChange={(e) => setInlineFoodFat(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold text-center"
+                  />
+                </div>
+              </div>
+
+              {/* Lien internet / Source (optionnel) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Lien internet / Source (optionnel)</label>
+                <input
+                  type="url"
+                  placeholder="Ex: https://..."
+                  value={inlineFoodLink}
+                  onChange={(e) => setInlineFoodLink(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-medium"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 bg-accent-teal text-white font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150 mt-2"
+              >
+                Créer l'Ingrédient
+              </button>
             </form>
           </div>
         </div>

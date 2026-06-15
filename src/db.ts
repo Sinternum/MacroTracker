@@ -11,6 +11,7 @@ export interface CustomFood {
   carbs: number;    // grammes pour 100g
   fat: number;      // grammes pour 100g
   calories: number; // kcal pour 100g
+  link?: string;    // lien internet/source optionnel (ex: fiche produit, magasin)
 }
 
 export interface RecipeIngredient {
@@ -31,6 +32,7 @@ export interface LogbookEntry {
   recipeId?: number; // présent si type === 'recipe'
   type: 'food' | 'recipe' | 'quick-add';
   weight: number; // poids consommé en grammes
+  meal?: string;  // catégorie de repas (ex: 'Petit-déjeuner', 'Déjeuner', 'Dîner', 'En-cas', etc.)
   quickAdd?: {
     calories: number;
     protein: number;
@@ -61,6 +63,7 @@ export interface UserSettings {
   manualCalorieGoal?: number | null; // Objectif calorique manuel
   targetWeight?: number | null; // Objectif de poids cible (en kg)
   targetWeightDate?: string | null; // Date cible pour le poids (YYYY-MM-DD)
+  mealTargets?: Record<string, number>; // Cibles caloriques par repas (ex: { 'Petit-déjeuner': 500 })
 }
 
 // Interface structurée pour les fichiers d'import/export
@@ -125,7 +128,8 @@ db.on('populate', () => {
     calorieGoalMode: 'dynamic',
     manualCalorieGoal: null,
     targetWeight: null,
-    targetWeightDate: null
+    targetWeightDate: null,
+    mealTargets: {}
   });
 });
 

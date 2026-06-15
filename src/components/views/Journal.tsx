@@ -13,7 +13,8 @@ import {
   TrendingDown,
   ChevronDown,
   ChevronUp,
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { db, type LogbookDay, type LogbookEntry } from '../../db';
 
@@ -58,6 +59,8 @@ export const Journal: React.FC = () => {
     removeEntry,
     updateEntryWeight,
     runWeeklyCheckin,
+    updateSettings,
+    updateMealCalorieTarget,
     isLoading
   } = useLogbookStore();
 
@@ -65,7 +68,7 @@ export const Journal: React.FC = () => {
   const [checkinResult, setCheckinResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // États du calendrier mensuel
-  const [calendarOpen, setCalendarOpen] = useState<boolean>(true);
+  const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
   const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth()); // 0-11
   const [monthLogDays, setMonthLogDays] = useState<LogbookDay[]>([]);
@@ -73,6 +76,16 @@ export const Journal: React.FC = () => {
   // État de la modale de détails d'une entrée
   const [viewingEntry, setViewingEntry] = useState<LogbookEntry | null>(null);
   const [editWeight, setEditWeight] = useState<string>('');
+
+  // Cibles de repas et édition rapide
+  const [editingMealLimit, setEditingMealLimit] = useState<string | null>(null);
+  const [mealLimitInput, setMealLimitInput] = useState<string>('');
+  const [addingCustomMeal, setAddingCustomMeal] = useState<boolean>(false);
+  const [newMealName, setNewMealName] = useState<string>('');
+
+  // Édition TDEE en direct
+  const [isEditingTDEE, setIsEditingTDEE] = useState<boolean>(false);
+  const [tdeeInput, setTdeeInput] = useState<string>('');
 
   // Charger les cibles de poids de l'input local
   useEffect(() => {
@@ -183,6 +196,7 @@ export const Journal: React.FC = () => {
         protein: food.protein * factor,
         carbs: food.carbs * factor,
         fat: food.fat * factor,
+        link: food.link,
       };
     } else if (entry.type === 'recipe') {
       const recipe = recipes.find(r => r.id === entry.recipeId);
@@ -195,6 +209,7 @@ export const Journal: React.FC = () => {
         protein: recipeMacros.protein * factor,
         carbs: recipeMacros.carbs * factor,
         fat: recipeMacros.fat * factor,
+        link: undefined,
       };
     } else if (entry.type === 'quick-add' && entry.quickAdd) {
       return {
@@ -203,6 +218,7 @@ export const Journal: React.FC = () => {
         protein: entry.quickAdd.protein,
         carbs: entry.quickAdd.carbs,
         fat: entry.quickAdd.fat,
+        link: undefined,
       };
     }
     return null;
@@ -359,16 +375,59 @@ export const Journal: React.FC = () => {
               <div className="p-2 bg-accent-teal/10 rounded-2xl text-accent-teal mt-0.5">
                 <Sparkles className="h-5 w-5" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 flex-1">
                 <h3 className="text-sm font-display font-semibold text-slate-200">Métabolisme & TDEE</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  TDEE actuel : <span className="font-semibold text-slate-200">{settings.defaultTDEE} kcal</span>.
-                  Déficit cible : <span className="font-semibold text-slate-200">-{settings.targetDeficit} kcal</span>.
-                </p>
+                {isEditingTDEE ? (
+                  <form 
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const parsed = parseInt(tdeeInput);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        await updateSettings({ defaultTDEE: parsed });
+                      }
+                      setIsEditingTDEE(false);
+                    }}
+                    className="flex items-center space-x-2 mt-1.5"
+                  >
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={tdeeInput}
+                      onChange={(e) => setTdeeInput(e.target.value)}
+                      className="w-24 bg-black border border-zinc-800 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-teal"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-2 py-1 bg-accent-teal text-black rounded-lg text-[10px] font-bold active:scale-95 transition"
+                    >
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTDEE(false)}
+                      className="text-slate-400 hover:text-slate-200"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <p 
+                    className="text-xs text-slate-400 leading-relaxed cursor-pointer hover:text-slate-200 group"
+                    onClick={() => {
+                      setTdeeInput(settings.defaultTDEE.toString());
+                      setIsEditingTDEE(true);
+                    }}
+                    title="Cliquez pour modifier le TDEE directement"
+                  >
+                    TDEE actuel : <span className="font-semibold text-slate-200 border-b border-dashed border-slate-500/50 hover:border-slate-200">{settings.defaultTDEE} kcal ✎</span>.
+                    Déficit cible : <span className="font-semibold text-slate-200">-{settings.targetDeficit} kcal</span>.
+                  </p>
+                )}
                 <button
                   onClick={handleCheckin}
                   disabled={isLoading}
-                  className="mt-2 text-xs font-semibold text-accent-teal bg-accent-teal/10 hover:bg-accent-teal/20 px-3 py-1.5 rounded-xl transition inline-flex items-center active:scale-95"
+                  className="mt-2.5 text-xs font-semibold text-accent-teal bg-accent-teal/10 hover:bg-accent-teal/20 px-3 py-1.5 rounded-xl transition inline-flex items-center active:scale-95"
                 >
                   Calculer le TDEE réel (Check-in)
                 </button>
@@ -388,8 +447,65 @@ export const Journal: React.FC = () => {
           </div>
         )}
 
+        {/* Résumé de la Journée - Cercle de Progression */}
+        <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-6 shadow-lg backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="flex items-center justify-between w-full max-w-sm">
+            {/* Consommées */}
+            <div className="text-center flex-1">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Consommées</span>
+              <span className="text-xl font-display font-extrabold text-slate-100 tabular-nums">
+                {Math.round(totals.calories)} <span className="text-xs font-normal text-slate-500">kcal</span>
+              </span>
+            </div>
+
+            {/* Circular Indicator */}
+            <div className="relative flex items-center justify-center mx-4 shrink-0">
+              <svg className="w-28 h-28 transform -rotate-90">
+                <circle
+                  cx="56"
+                  cy="56"
+                  r="44"
+                  className="stroke-zinc-850"
+                  strokeWidth="7"
+                  fill="transparent"
+                />
+                <circle
+                  cx="56"
+                  cy="56"
+                  r="44"
+                  className="stroke-accent-teal"
+                  strokeWidth="7"
+                  fill="transparent"
+                  strokeDasharray={2 * Math.PI * 44}
+                  strokeDashoffset={2 * Math.PI * 44 - (Math.min(totals.calories, targetCals) / (targetCals || 1)) * (2 * Math.PI * 44)}
+                  strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center text-center">
+                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Objectif</span>
+                <span className="text-base font-display font-extrabold text-slate-100 tabular-nums">
+                  {targetCals}
+                </span>
+                <span className="text-[9px] text-slate-400 font-semibold">kcal</span>
+              </div>
+            </div>
+
+            {/* Restantes */}
+            <div className="text-center flex-1">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Restantes</span>
+              <span className={`text-xl font-display font-extrabold tabular-nums ${
+                targetCals - totals.calories >= 0 ? 'text-accent-teal' : 'text-rose-500'
+              }`}>
+                {Math.round(Math.abs(targetCals - totals.calories))} <span className="text-xs font-normal text-slate-500">kcal</span>
+                {targetCals - totals.calories < 0 && <span className="block text-[8px] font-bold uppercase text-rose-500">de trop</span>}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Dashboard Macros Card */}
-        <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-5 shadow-lg backdrop-blur-sm">
+        <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-4 shadow-lg backdrop-blur-sm">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase">Tableau des Macros</h3>
             {settings?.calorieGoalMode === 'manual' && (
@@ -399,15 +515,7 @@ export const Journal: React.FC = () => {
             )}
           </div>
           
-          <ProgressBar 
-            label="Calories" 
-            current={totals.calories} 
-            target={targetCals} 
-            colorClass="bg-gradient-to-r from-accent-teal to-blue-500 shadow-[0_0_8px_rgba(6,182,212,0.3)]" 
-            unit=" kcal" 
-          />
-
-          <div className="grid grid-cols-1 gap-4 pt-1">
+          <div className="grid grid-cols-1 gap-4">
             <ProgressBar 
               label="Protéines" 
               current={totals.protein} 
@@ -431,6 +539,181 @@ export const Journal: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* Detail macros par repas */}
+        {(() => {
+          const predefinedMeals = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'En-cas'];
+          const customMealsFromSettings = Object.keys(settings?.mealTargets || {});
+          const customMealsFromEntries = currentDay 
+            ? Array.from(new Set(currentDay.entries.map(e => e.meal).filter((m): m is string => !!m)))
+            : [];
+          
+          const allActiveMeals = Array.from(new Set([
+            ...predefinedMeals,
+            ...customMealsFromSettings,
+            ...customMealsFromEntries
+          ]));
+
+          const getMealTotals = (mealName: string) => {
+            let calories = 0;
+            let protein = 0;
+            let carbs = 0;
+            let fat = 0;
+            
+            if (currentDay) {
+              currentDay.entries.forEach(entry => {
+                if (entry.meal === mealName) {
+                  const details = getEntryDetails(entry);
+                  if (details) {
+                    calories += details.calories;
+                    protein += details.protein;
+                    carbs += details.carbs;
+                    fat += details.fat;
+                  }
+                }
+              });
+            }
+            
+            return { calories, protein, carbs, fat };
+          };
+
+          return (
+            <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-4 shadow-lg backdrop-blur-sm">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase">Détail par Repas</h3>
+                <button
+                  onClick={() => setAddingCustomMeal(true)}
+                  className="text-xs font-bold text-accent-teal hover:underline flex items-center space-x-1"
+                >
+                  <span>+ Ajouter repas</span>
+                </button>
+              </div>
+
+              {addingCustomMeal && (
+                <div className="flex items-center space-x-2 bg-zinc-950 p-2.5 rounded-2xl border border-zinc-800">
+                  <input
+                    type="text"
+                    placeholder="Nom du repas (ex: Repas 5)"
+                    value={newMealName}
+                    onChange={(e) => setNewMealName(e.target.value)}
+                    className="flex-1 bg-black border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none"
+                    autoFocus
+                  />
+                  <button
+                    onClick={async () => {
+                      if (newMealName.trim()) {
+                        await updateMealCalorieTarget(newMealName.trim(), -1);
+                        setNewMealName('');
+                        setAddingCustomMeal(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-accent-teal text-black rounded-xl text-xs font-bold"
+                  >
+                    Ajouter
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNewMealName('');
+                      setAddingCustomMeal(false);
+                    }}
+                    className="text-slate-400 hover:text-slate-200"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      <th className="py-2 pr-2">Repas</th>
+                      <th className="py-2 text-right">Kcal / Cible</th>
+                      <th className="py-2 text-right">P</th>
+                      <th className="py-2 text-right">G</th>
+                      <th className="py-2 text-right">L</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-900/50">
+                    {allActiveMeals.map((mealName) => {
+                      const mealTotals = getMealTotals(mealName);
+                      const target = settings?.mealTargets?.[mealName];
+                      const hasTarget = target !== undefined && target > 0;
+
+                      return (
+                        <tr key={mealName} className="text-xs text-slate-300 group hover:bg-zinc-900/10">
+                          <td className="py-2.5 pr-2 font-medium">
+                            <div className="flex flex-col">
+                              <span>{mealName}</span>
+                              {hasTarget && (
+                                <div className="w-16 h-1 bg-zinc-850 rounded-full overflow-hidden mt-1">
+                                  <div 
+                                    className="h-full bg-accent-teal" 
+                                    style={{ width: `${Math.min(100, (mealTotals.calories / target) * 100)}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-right tabular-nums">
+                            <div className="flex flex-col items-end justify-center">
+                              {editingMealLimit === mealName ? (
+                                <div className="flex items-center space-x-1">
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    placeholder="Cible"
+                                    value={mealLimitInput}
+                                    onChange={(e) => setMealLimitInput(e.target.value)}
+                                    className="w-14 bg-black border border-zinc-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200 text-right focus:outline-none"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={async () => {
+                                      const val = parseFloat(mealLimitInput);
+                                      await updateMealCalorieTarget(mealName, isNaN(val) ? null : val);
+                                      setEditingMealLimit(null);
+                                    }}
+                                    className="px-1 bg-accent-teal text-black rounded text-[9px] font-bold"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingMealLimit(null)}
+                                    className="text-slate-500 hover:text-slate-300"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div 
+                                  onClick={() => {
+                                    setMealLimitInput(hasTarget ? target.toString() : '');
+                                    setEditingMealLimit(mealName);
+                                  }}
+                                  className="cursor-pointer hover:underline text-slate-200 flex items-center space-x-1 justify-end font-semibold"
+                                >
+                                  <span>{Math.round(mealTotals.calories)}</span>
+                                  <span className="text-[10px] text-slate-500 font-normal">
+                                    / {hasTarget ? `${target}` : '—'}
+                                  </span>
+                                  <span className="text-[9px] text-accent-teal opacity-0 group-hover:opacity-100 transition pl-0.5">✎</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-right tabular-nums text-violet-400 font-medium">{Math.round(mealTotals.protein)}g</td>
+                          <td className="py-2.5 text-right tabular-nums text-cyan-400 font-medium">{Math.round(mealTotals.carbs)}g</td>
+                          <td className="py-2.5 text-right tabular-nums text-amber-500 font-medium">{Math.round(mealTotals.fat)}g</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Weight Tracker Card + Goal progress */}
         <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 shadow-lg flex flex-col space-y-4">
@@ -494,7 +777,7 @@ export const Journal: React.FC = () => {
         </div>
 
         {/* Food Log Entries Card */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
             <h4 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase">Aliments Consommés</h4>
             <span className="text-xs font-semibold text-slate-500">
@@ -512,50 +795,111 @@ export const Journal: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {currentDay.entries.map((entry) => {
-                const details = getEntryDetails(entry);
-                if (!details) return null;
+            <div className="space-y-4">
+              {(() => {
+                // Group entries by meal
+                const groupedEntries: Record<string, LogbookEntry[]> = {};
+                currentDay.entries.forEach(entry => {
+                  const mealName = entry.meal || 'Autre';
+                  if (!groupedEntries[mealName]) {
+                    groupedEntries[mealName] = [];
+                  }
+                  groupedEntries[mealName].push(entry);
+                });
 
-                return (
-                  <div 
-                    key={entry.id}
-                    onClick={() => {
-                      setViewingEntry(entry);
-                      setEditWeight(entry.weight.toString());
-                    }}
-                    className="bg-zinc-900/50 border border-zinc-800/50 hover:border-zinc-700/60 rounded-2xl p-4 flex justify-between items-center shadow-sm relative group active:bg-zinc-900 transition duration-150 cursor-pointer"
-                  >
-                    <div className="space-y-1 flex-1 pr-4 min-w-0">
-                      <p className="text-sm font-semibold text-slate-200 truncate">{details.name}</p>
-                      <div className="flex items-center space-x-3 text-xs text-slate-500 font-medium">
-                        {entry.type !== 'quick-add' && (
-                          <span className="bg-zinc-950 px-2 py-0.5 rounded-md text-[10px] text-slate-400 tabular-nums">
-                            {entry.weight}g
-                          </span>
-                        )}
-                        <span className="tabular-nums font-semibold text-slate-400">
-                          {Math.round(details.calories)} kcal
+                const mealOrder = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'En-cas'];
+                const sortedMealGroups = Object.keys(groupedEntries).sort((a, b) => {
+                  const indexA = mealOrder.indexOf(a);
+                  const indexB = mealOrder.indexOf(b);
+                  if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                  if (indexA !== -1) return -1;
+                  if (indexB !== -1) return 1;
+                  return a.localeCompare(b);
+                });
+
+                return sortedMealGroups.map(mealName => {
+                  const entries = groupedEntries[mealName];
+                  const mealCalories = entries.reduce((sum, entry) => {
+                    const details = getEntryDetails(entry);
+                    return sum + (details?.calories || 0);
+                  }, 0);
+
+                  return (
+                    <div key={mealName} className="space-y-2">
+                      {/* Meal Sub-header */}
+                      <div className="flex justify-between items-center px-1 pt-1">
+                        <span className="text-[11px] font-display font-extrabold text-slate-400 uppercase tracking-wider">
+                          {mealName}
                         </span>
-                        <span className="hidden sm:inline tabular-nums">
-                          P: {Math.round(details.protein)}g • G: {Math.round(details.carbs)}g • L: {Math.round(details.fat)}g
+                        <span className="text-[11px] font-semibold text-slate-500 tabular-nums">
+                          {Math.round(mealCalories)} kcal
                         </span>
                       </div>
-                    </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation(); // Évite d'ouvrir la modale de détails
-                        removeEntry(selectedDate, entry.id);
-                      }}
-                      className="p-2.5 text-zinc-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition active:scale-90"
-                      aria-label="Supprimer"
-                    >
-                      <Trash2 className="h-4.5 w-4.5" />
-                    </button>
-                  </div>
-                );
-              })}
+                      {/* Entries under this meal */}
+                      <div className="space-y-2">
+                        {entries.map((entry) => {
+                          const details = getEntryDetails(entry);
+                          if (!details) return null;
+
+                          return (
+                            <div 
+                              key={entry.id}
+                              onClick={() => {
+                                setViewingEntry(entry);
+                                setEditWeight(entry.weight.toString());
+                              }}
+                              className="bg-zinc-900/50 border border-zinc-800/50 hover:border-zinc-700/60 rounded-2xl p-4 flex justify-between items-center shadow-sm relative group active:bg-zinc-900 transition duration-150 cursor-pointer"
+                            >
+                              <div className="space-y-1 flex-1 pr-4 min-w-0">
+                                <div className="flex items-center space-x-2">
+                                  <p className="text-sm font-semibold text-slate-200 truncate">{details.name}</p>
+                                  {details.link && (
+                                    <a
+                                      href={details.link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()} // Évite d'ouvrir la modale de détails
+                                      className="p-1 text-accent-teal hover:text-accent-teal/80 bg-zinc-950 hover:bg-zinc-900 rounded-lg transition"
+                                      title="Ouvrir le lien source"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-3 text-xs text-slate-500 font-medium">
+                                  {entry.type !== 'quick-add' && (
+                                    <span className="bg-zinc-950 px-2 py-0.5 rounded-md text-[10px] text-slate-400 tabular-nums">
+                                      {entry.weight}g
+                                    </span>
+                                  )}
+                                  <span className="tabular-nums font-semibold text-slate-400">
+                                    {Math.round(details.calories)} kcal
+                                  </span>
+                                  <span className="hidden sm:inline tabular-nums">
+                                    P: {Math.round(details.protein)}g • G: {Math.round(details.carbs)}g • L: {Math.round(details.fat)}g
+                                  </span>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Évite d'ouvrir la modale de détails
+                                  removeEntry(selectedDate, entry.id);
+                                }}
+                                className="p-2.5 text-zinc-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition active:scale-90"
+                                aria-label="Supprimer"
+                              >
+                                <Trash2 className="h-4.5 w-4.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </div>
@@ -631,6 +975,18 @@ export const Journal: React.FC = () => {
                     <span className="text-sm font-display font-extrabold text-slate-100 tabular-nums">{Math.round(details.fat)}g</span>
                   </div>
                 </div>
+
+                {details.link && (
+                  <a
+                    href={details.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full h-11 bg-accent-teal/10 hover:bg-accent-teal/20 border border-accent-teal/20 text-accent-teal font-semibold rounded-2xl transition flex items-center justify-center space-x-2 active:scale-95 text-xs"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span>Ouvrir le lien source</span>
+                  </a>
+                )}
 
                 {/* Si c'est une Recette : Afficher les notes & ingrédients */}
                 {viewingEntry.type === 'recipe' && (
