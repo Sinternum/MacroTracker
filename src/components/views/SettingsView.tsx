@@ -32,6 +32,8 @@ export const SettingsView: React.FC = () => {
   const [manualCalorieGoal, setManualCalorieGoal] = useState<string>('');
   const [targetWeight, setTargetWeight] = useState<string>('');
   const [targetWeightDate, setTargetWeightDate] = useState<string>('');
+  const [defaultTDEE, setDefaultTDEE] = useState<string>('');
+  const [smoothedWeight, setSmoothedWeight] = useState<string>('');
 
   // États de statut
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -53,6 +55,8 @@ export const SettingsView: React.FC = () => {
       setManualCalorieGoal(settings.manualCalorieGoal ? settings.manualCalorieGoal.toString() : '');
       setTargetWeight(settings.targetWeight ? settings.targetWeight.toString() : '');
       setTargetWeightDate(settings.targetWeightDate || '');
+      setDefaultTDEE(settings.defaultTDEE ? settings.defaultTDEE.toString() : '');
+      setSmoothedWeight(settings.smoothedWeight ? settings.smoothedWeight.toString() : '');
     }
   }, [settings]);
 
@@ -79,6 +83,8 @@ export const SettingsView: React.FC = () => {
 
     const manualCalGoal = parseFloat(manualCalorieGoal);
     const targetW = parseFloat(targetWeight);
+    const defTDEE = parseFloat(defaultTDEE);
+    const smoothW = parseFloat(smoothedWeight);
 
     await updateSettings({
       targetDeficit: deficitVal,
@@ -92,6 +98,8 @@ export const SettingsView: React.FC = () => {
       manualCalorieGoal: isNaN(manualCalGoal) ? null : manualCalGoal,
       targetWeight: isNaN(targetW) ? null : targetW,
       targetWeightDate: targetWeightDate || null,
+      defaultTDEE: isNaN(defTDEE) ? 2200 : defTDEE,
+      smoothedWeight: isNaN(smoothW) ? null : smoothW,
     });
 
     setSaveStatus('Objectifs enregistrés ✓');
@@ -263,6 +271,22 @@ export const SettingsView: React.FC = () => {
                 <p className="text-[10px] text-slate-500">Sera soustrait de votre TDEE calculé automatiquement (ex: 500 kcal).</p>
               </div>
             )}
+
+            {/* TDEE de base (kcal) */}
+            <div className="space-y-1.5 pt-3.5 border-t border-zinc-800/60">
+              <label className="text-xs font-semibold text-slate-400">TDEE Actuel / de Base (kcal)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                pattern="[0-9]*"
+                required
+                placeholder="Ex: 2200"
+                value={defaultTDEE}
+                onChange={(e) => setDefaultTDEE(e.target.value)}
+                className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
+              />
+              <p className="text-[10px] text-slate-500">Dépense énergétique journalière estimée (mise à jour lors des check-ins hebdomadaires).</p>
+            </div>
           </div>
 
           {/* Section 2 : Répartition Macros */}
@@ -401,6 +425,21 @@ export const SettingsView: React.FC = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Poids Lissé Actuel (kg) */}
+            <div className="space-y-1.5 pt-3.5 border-t border-zinc-800/60">
+              <label className="text-xs font-semibold text-slate-400">Poids Lissé Actuel (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                placeholder="Ex: 78.5"
+                value={smoothedWeight}
+                onChange={(e) => setSmoothedWeight(e.target.value)}
+                className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
+              />
+              <p className="text-[10px] text-slate-500">Poids lissé de départ ou actuel de l'algorithme (EMA).</p>
             </div>
           </div>
 
