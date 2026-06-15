@@ -5,7 +5,8 @@ import {
   type LogbookEntry, 
   type UserSettings, 
   type CustomFood, 
-  type Recipe 
+  type Recipe,
+  DEFAULT_FOODS
 } from '../db';
 import { 
   calculateEMA, 
@@ -133,7 +134,16 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
       }
 
       // 2. Charger les aliments et recettes
-      const customFoods = await db.customFoods.toArray();
+      let customFoods = await db.customFoods.toArray();
+      
+      // S'assurer que tous les aliments de la liste par défaut sont présents dans la base locale
+      const existingNames = new Set(customFoods.map(f => f.name.toLowerCase()));
+      const toAdd = DEFAULT_FOODS.filter(df => !existingNames.has(df.name.toLowerCase()));
+      if (toAdd.length > 0) {
+        await db.customFoods.bulkAdd(toAdd);
+        customFoods = await db.customFoods.toArray();
+      }
+
       const recipes = await db.recipes.toArray();
 
       // 3. Charger le journal du jour courant

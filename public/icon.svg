@@ -1,17 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="grad2" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="128" fill="#090d16" />
-  <circle cx="256" cy="256" r="180" stroke="url(#grad1)" stroke-width="24" fill="none" opacity="0.15" />
-  <path d="M 256 76 A 180 180 0 1 1 76 256" fill="none" stroke="url(#grad2)" stroke-width="28" stroke-linecap="round" />
-  <path d="M 256 76 A 180 180 0 0 1 436 256" fill="none" stroke="url(#grad1)" stroke-width="28" stroke-linecap="round" />
-  <path d="M 276 170 L 196 280 L 256 280 L 236 342 L 316 232 L 256 232 Z" fill="#06b6d4" />
+  <!-- Arrière-plan vert de la PWA -->
+  <rect width="512" height="512" rx="128" fill="#52c463" />
+  
+  <!-- Carte centrale crème de l'application -->
+  <rect x="48" y="48" width="416" height="416" rx="96" fill="#fcfaf2" stroke="#e1daca" stroke-width="12" />
+  
+  <!-- Anneau de base des macros (gris/crème chaud) -->
+  <circle cx="256" cy="256" r="128" stroke="#eae3cf" stroke-width="20" fill="none" />
+  
+  <!-- Segment protéine (vert actif) -->
+  <path d="M 256 128 A 128 128 0 1 0 135 298" fill="none" stroke="#2b993d" stroke-width="24" stroke-linecap="round" />
+  
+  <!-- Segment glucides (orange actif) -->
+  <path d="M 256 128 A 128 128 0 0 1 369 317" fill="none" stroke="#ff9600" stroke-width="24" stroke-linecap="round" />
+  
+  <!-- Symbole de la feuille biologique au centre -->
+  <path d="M 256 185 C 290 185 320 215 310 265 C 300 315 256 325 256 325 C 256 325 212 315 202 265 C 192 215 222 185 256 185 Z" fill="#2b993d" />
+  
+  <!-- Nervures de la feuille en couleur crème -->
+  <path d="M 256 195 L 256 305" stroke="#fcfaf2" stroke-width="6" stroke-linecap="round" />
+  <path d="M 256 235 Q 285 225 295 210" stroke="#fcfaf2" stroke-width="5" stroke-linecap="round" fill="none" />
+  <path d="M 256 265 Q 227 255 217 240" stroke="#fcfaf2" stroke-width="5" stroke-linecap="round" fill="none" />
 </svg>

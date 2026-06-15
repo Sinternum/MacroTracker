@@ -107,18 +107,48 @@ export const db = new MacroTrackerDB();
 // PEUPLEMENT INITIAL (SEEDS POUR LE DEV)
 // ==========================================
 
+export const DEFAULT_FOODS: Omit<CustomFood, 'id'>[] = [
+  { name: "Blanc de poulet cru", calories: 110, protein: 23, carbs: 0, fat: 1.5 },
+  { name: "Steak haché bœuf 5% cru", calories: 125, protein: 21, carbs: 0, fat: 5 },
+  { name: "Saumon cru", calories: 208, protein: 20, carbs: 0, fat: 13 },
+  { name: "Thon au naturel égoutté", calories: 110, protein: 25, carbs: 0, fat: 1 },
+  { name: "Œuf entier", calories: 143, protein: 12, carbs: 1, fat: 10 },
+  { name: "Blanc d'œuf", calories: 48, protein: 11, carbs: 1, fat: 0 },
+  { name: "Fromage blanc 0%", calories: 48, protein: 8, carbs: 4, fat: 0 },
+  { name: "Skyr nature", calories: 57, protein: 10, carbs: 4, fat: 0 },
+  { name: "Whey Isolate", calories: 370, protein: 90, carbs: 1, fat: 1 },
+  { name: "Tofu nature", calories: 144, protein: 15, carbs: 2, fat: 8 },
+  { name: "Riz basmati cru", calories: 350, protein: 8, carbs: 77, fat: 1 },
+  { name: "Pâtes crues", calories: 350, protein: 12, carbs: 71, fat: 1.5 },
+  { name: "Crème de riz poudre", calories: 360, protein: 7, carbs: 80, fat: 1 },
+  { name: "Flocons d'avoine", calories: 370, protein: 13, carbs: 60, fat: 7 },
+  { name: "Pomme de terre crue", calories: 80, protein: 2, carbs: 17, fat: 0 },
+  { name: "Patate douce crue", calories: 86, protein: 1.6, carbs: 20, fat: 0.1 },
+  { name: "Quinoa cru", calories: 368, protein: 14, carbs: 64, fat: 6 },
+  { name: "Lentilles crues", calories: 353, protein: 25, carbs: 54, fat: 1 },
+  { name: "Galette de riz", calories: 380, protein: 8, carbs: 82, fat: 2 },
+  { name: "Pain de mie complet", calories: 250, protein: 9, carbs: 43, fat: 4 },
+  { name: "Huile d'olive", calories: 900, protein: 0, carbs: 0, fat: 100 },
+  { name: "Beurre de cacahuète 100%", calories: 588, protein: 25, carbs: 16, fat: 50 },
+  { name: "Amandes", calories: 579, protein: 21, carbs: 21, fat: 49 },
+  { name: "Noix", calories: 654, protein: 15, carbs: 14, fat: 65 },
+  { name: "Avocat", calories: 160, protein: 2, carbs: 8, fat: 15 },
+  { name: "Beurre doux", calories: 717, protein: 0.8, carbs: 0.6, fat: 81 },
+  { name: "Brocoli cru", calories: 34, protein: 2.8, carbs: 4, fat: 0.4 },
+  { name: "Haricots verts crus", calories: 31, protein: 1.8, carbs: 7, fat: 0.2 },
+  { name: "Courgette crue", calories: 17, protein: 1, carbs: 3, fat: 0.3 },
+  { name: "Épinards crus", calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 },
+  { name: "Tomate", calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2 },
+  { name: "Banane", calories: 89, protein: 1, carbs: 22, fat: 0.3 },
+  { name: "Pomme", calories: 52, protein: 0.3, carbs: 14, fat: 0.2 },
+  { name: "Myrtilles", calories: 57, protein: 0.7, carbs: 14, fat: 0.3 },
+  { name: "Miel", calories: 304, protein: 0.3, carbs: 82, fat: 0 },
+  { name: "Chocolat noir 70%", calories: 598, protein: 8, carbs: 34, fat: 43 }
+];
+
 db.on('populate', () => {
   // Aliments de base pré-configurés
-  db.customFoods.bulkAdd([
-    { name: 'Blanc de poulet (cuit)', protein: 31, carbs: 0, fat: 3.6, calories: 165 },
-    { name: 'Riz basmati (cru)', protein: 8.5, carbs: 78, fat: 1.2, calories: 360 },
-    { name: 'Œuf entier (cuit)', protein: 13, carbs: 1.1, fat: 11, calories: 155 },
-    { name: 'Flocons d\'avoine', protein: 13.5, carbs: 58.7, fat: 7, calories: 375 },
-    { name: 'Banane', protein: 1.1, carbs: 20, fat: 0.3, calories: 89 },
-    { name: 'Huile d\'olive', protein: 0, carbs: 0, fat: 100, calories: 884 },
-    { name: 'Pomme', protein: 0.3, carbs: 14, fat: 0.2, calories: 52 },
-    { name: 'Skyr Nature', protein: 11, carbs: 4, fat: 0.2, calories: 57 }
-  ]);
+  db.customFoods.bulkAdd(DEFAULT_FOODS);
 
   // Paramètres initiaux par défaut
   db.settings.add({
