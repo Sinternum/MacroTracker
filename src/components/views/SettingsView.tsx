@@ -9,9 +9,7 @@ import {
   Check, 
   AlertCircle, 
   TrendingDown,
-  Scale,
-  Calendar,
-  Sparkles
+  Scale
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
@@ -157,10 +155,10 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-y-auto pb-10 no-scrollbar">
+    <div className="flex-1 flex flex-col min-h-0 bg-black ios-scroll pb-10 no-scrollbar">
       
       {/* Header fixe */}
-      <div className="bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 py-4 px-4 border-b border-zinc-900 text-center">
+      <div className="bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 border-b border-zinc-900 text-center">
         <h2 className="text-lg font-display font-bold text-slate-100 select-none">
           Réglages Métaboliques
         </h2>

@@ -191,10 +191,10 @@ export const AddView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-y-auto pb-10 no-scrollbar relative">
+    <div className="flex-1 flex flex-col min-h-0 bg-black ios-scroll pb-10 no-scrollbar relative">
       
       {/* Segmented Control Header style iOS */}
-      <div className="bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 py-3.5 px-4 border-b border-zinc-900">
+      <div className="bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 pt-[calc(env(safe-area-inset-top)+0.875rem)] pb-3.5 px-4 border-b border-zinc-900">
         <div className="max-w-md mx-auto w-full bg-zinc-900 p-1 rounded-2xl flex justify-between items-center text-xs font-semibold">
           <button
             onClick={() => setSubTab('foods')}
@@ -433,55 +433,103 @@ export const AddView: React.FC = () => {
       {/* ==========================================
           MODALE : SAISIE DE LA PORTION CONSOMMÉE
          ========================================== */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center">
-          <div className="bg-zinc-950 border-t border-zinc-800 w-full max-w-md rounded-t-3xl p-6 space-y-6 shadow-2xl animate-in slide-in-from-bottom duration-200">
-            
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  {selectedItem.type === 'food' ? 'Aliment' : 'Recette'}
-                </span>
-                <h4 className="text-lg font-display font-extrabold text-slate-100">{selectedItem.name}</h4>
-              </div>
-              <button 
-                onClick={() => { setSelectedItem(null); setPortionWeight(''); }}
-                className="p-1.5 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-full"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {selectedItem && (() => {
+        // Obtenir les détails de la recette si c'en est une
+        let recipeNotes = '';
+        let recipeIngredientsList: Array<{ name: string; weight: number }> = [];
 
-            <form onSubmit={handleAddEntrySubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400">Poids consommé (grammes)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    pattern="[0-9]*"
-                    autoFocus
-                    required
-                    placeholder="Ex: 150"
-                    value={portionWeight}
-                    onChange={(e) => setPortionWeight(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-4 text-center text-2xl font-display font-extrabold text-slate-200 focus:outline-none focus:border-accent-teal transition"
-                  />
-                  <span className="absolute right-4 top-5 text-sm font-bold text-slate-500">g</span>
+        if (selectedItem.type === 'recipe') {
+          const recipe = recipes.find(r => r.id === selectedItem.id);
+          if (recipe) {
+            recipeNotes = recipe.notes || '';
+            recipeIngredientsList = recipe.ingredients.map(ing => {
+              const food = customFoods.find(f => f.id === ing.foodId);
+              return {
+                name: food ? food.name : 'Aliment inconnu',
+                weight: ing.rawWeight
+              };
+            });
+          }
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center">
+            <div className="bg-zinc-950 border-t border-zinc-800 w-full max-w-md rounded-t-3xl p-6 space-y-6 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-200">
+              
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    {selectedItem.type === 'food' ? 'Aliment' : 'Recette'}
+                  </span>
+                  <h4 className="text-lg font-display font-extrabold text-slate-100">{selectedItem.name}</h4>
                 </div>
+                <button 
+                  onClick={() => { setSelectedItem(null); setPortionWeight(''); }}
+                  className="p-1.5 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-full"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-12 bg-accent-teal text-white font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150"
-              >
-                Valider l'Ajout
-              </button>
-            </form>
+              {/* Si c'est une Recette : Afficher les notes & ingrédients */}
+              {selectedItem.type === 'recipe' && (
+                <div className="space-y-4">
+                  {/* Notes de préparation */}
+                  {recipeNotes && (
+                    <div className="bg-zinc-900/60 p-4 border border-zinc-800 rounded-2xl space-y-1">
+                      <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Instructions de préparation</h5>
+                      <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{recipeNotes}</p>
+                    </div>
+                  )}
+
+                  {/* Liste Ingrédients Crus */}
+                  {recipeIngredientsList.length > 0 && (
+                    <div className="space-y-1.5">
+                      <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide px-1">Composition (Poids Crus)</h5>
+                      <div className="bg-zinc-900/40 rounded-2xl p-3.5 border border-zinc-800/80 space-y-2 max-h-36 overflow-y-auto">
+                        {recipeIngredientsList.map((ing, i) => (
+                          <div key={i} className="flex justify-between items-center text-xs text-slate-400">
+                            <span className="truncate pr-2 font-medium">• {ing.name}</span>
+                            <span className="font-semibold tabular-nums shrink-0">{ing.weight}g</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <form onSubmit={handleAddEntrySubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400">Poids consommé (grammes)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
+                      autoFocus
+                      required
+                      placeholder="Ex: 150"
+                      value={portionWeight}
+                      onChange={(e) => setPortionWeight(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-4 text-center text-2xl font-display font-extrabold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                    />
+                    <span className="absolute right-4 top-5 text-sm font-bold text-slate-500">g</span>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full h-12 bg-accent-teal text-white font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150"
+                >
+                  Valider l'Ajout
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ==========================================
           MODALE : CRÉATION ALIMENT

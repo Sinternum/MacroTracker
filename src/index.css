@@ -17,14 +17,26 @@
     background-color: var(--color-ios-bg);
     color: #f1f5f9;
     font-family: var(--font-sans);
-    min-height: 100dvh;
-    overflow-x: hidden;
+    height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
     /* Comportement natif iOS strict */
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
     touch-action: manipulation;
+  }
+
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   h1, h2, h3, h4, h5, h6 {

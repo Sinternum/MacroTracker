@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLogbookStore } from './store/useLogbookStore';
 import { Journal } from './components/views/Journal';
 import { AddView } from './components/views/AddView';
@@ -11,7 +11,8 @@ import {
 
 function App() {
   const init = useLogbookStore((state) => state.init);
-  const [activeTab, setActiveTab] = useState<'journal' | 'add' | 'settings'>('journal');
+  const activeTab = useLogbookStore((state) => state.activeTab);
+  const setActiveTab = useLogbookStore((state) => state.setActiveTab);
 
   // Initialiser la base locale et le store au chargement de la PWA
   useEffect(() => {

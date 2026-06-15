@@ -10,13 +10,10 @@ import {
   Utensils, 
   Sparkles,
   AlertCircle,
-  Calendar as CalendarIcon,
   TrendingDown,
-  Info,
   ChevronDown,
   ChevronUp,
-  X,
-  Check
+  X
 } from 'lucide-react';
 import { db, type LogbookDay, type LogbookEntry } from '../../db';
 
@@ -68,7 +65,7 @@ export const Journal: React.FC = () => {
   const [checkinResult, setCheckinResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // États du calendrier mensuel
-  const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
+  const [calendarOpen, setCalendarOpen] = useState<boolean>(true);
   const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth()); // 0-11
   const [monthLogDays, setMonthLogDays] = useState<LogbookDay[]>([]);
@@ -239,27 +236,20 @@ export const Journal: React.FC = () => {
     const dayTotals = calculateDayTotals(dayData, customFoods, recipes);
     const diff = Math.abs(dayTotals.calories - targetCals);
 
-    let baseStyle = '';
     if (diff <= 100) {
-      baseStyle = 'bg-emerald-500 text-black font-extrabold border-emerald-400';
+      return 'bg-emerald-500 text-black font-extrabold border-emerald-400';
     } else if (diff <= 250) {
-      baseStyle = 'bg-amber-500 text-black font-extrabold border-amber-400';
+      return 'bg-amber-500 text-black font-extrabold border-amber-400';
     } else {
-      baseStyle = 'bg-rose-500 text-white font-extrabold border-rose-400';
+      return 'bg-rose-500 text-white font-extrabold border-rose-400';
     }
-
-    if (formattedDate === selectedDate) {
-      baseStyle += ' ring-2 ring-white scale-110';
-    }
-
-    return baseStyle;
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-y-auto pb-8 no-scrollbar">
+    <div className="flex-1 flex flex-col min-h-0 bg-black ios-scroll pb-8 no-scrollbar">
       
       {/* Date Selector Header */}
-      <div className="flex justify-between items-center py-4 px-4 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 border-b border-zinc-900">
+      <div className="flex justify-between items-center pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 border-b border-zinc-900">
         <button 
           onClick={() => adjustDate(-1)}
           className="p-2 text-slate-400 hover:text-slate-100 bg-zinc-900 active:bg-zinc-800 rounded-xl transition"
@@ -326,7 +316,9 @@ export const Journal: React.FC = () => {
                 <button
                   key={`day-${day}`}
                   onClick={() => setSelectedDate(formattedDate)}
-                  className={`aspect-square w-full rounded-lg flex items-center justify-center text-xs font-semibold transition active:scale-90 ${getDateComplianceClass(day)}`}
+                  className={`aspect-square w-full rounded-lg flex items-center justify-center text-xs font-semibold transition active:scale-90 ${getDateComplianceClass(day)} ${
+                    isSelected ? 'ring-2 ring-white scale-110 z-10' : ''
+                  }`}
                 >
                   {day}
                 </button>

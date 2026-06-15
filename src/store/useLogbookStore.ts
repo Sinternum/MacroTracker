@@ -30,6 +30,8 @@ export interface LogbookState {
   recipes: Recipe[];
   isLoading: boolean;
   error: string | null;
+  activeTab: 'journal' | 'add' | 'settings';
+  setActiveTab: (tab: 'journal' | 'add' | 'settings') => void;
 
   // Actions d'initialisation et navigation date
   init: () => Promise<void>;
@@ -71,6 +73,8 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
   recipes: [],
   isLoading: false,
   error: null,
+  activeTab: 'journal',
+  setActiveTab: (tab) => set({ activeTab: tab }),
 
   init: async () => {
     set({ isLoading: true, error: null });
@@ -179,9 +183,11 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
       day.entries.push(newEntry);
       await db.logbook.put(day);
 
-      // Si c'est la date active, mettre à jour le state
+      // Si c'est la date active, mettre à jour le state et rediriger vers le journal
       if (date === get().selectedDate) {
-        set({ currentDay: day });
+        set({ currentDay: day, activeTab: 'journal' });
+      } else {
+        set({ activeTab: 'journal' });
       }
     } catch (err: any) {
       set({ error: err.message || "Erreur lors de l'ajout de l'aliment consommé." });
