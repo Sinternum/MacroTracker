@@ -87,6 +87,23 @@ export const Journal: React.FC = () => {
   const [isEditingTDEE, setIsEditingTDEE] = useState<boolean>(false);
   const [tdeeInput, setTdeeInput] = useState<string>('');
 
+  // Calculateur de TDEE manuel
+  const [isTDEECalculatorOpen, setIsTDEECalculatorOpen] = useState<boolean>(false);
+  const [tdeeCalcMethod, setTdeeCalcMethod] = useState<'tracking' | 'formula'>('tracking');
+
+  // Valeurs pour méthode "Suivi"
+  const [calcAvgCalories, setCalcAvgCalories] = useState<string>('');
+  const [calcStartWeight, setCalcStartWeight] = useState<string>('');
+  const [calcEndWeight, setCalcEndWeight] = useState<string>('');
+  const [calcDuration, setCalcDuration] = useState<string>('14');
+
+  // Valeurs pour méthode "Formule"
+  const [calcGender, setCalcGender] = useState<'male' | 'female'>('male');
+  const [calcWeight, setCalcWeight] = useState<string>('');
+  const [calcHeight, setCalcHeight] = useState<string>('');
+  const [calcAge, setCalcAge] = useState<string>('');
+  const [calcActivity, setCalcActivity] = useState<string>('1.375');
+
   // Charger les cibles de poids de l'input local
   useEffect(() => {
     if (currentDay && currentDay.dailyWeight !== null) {
@@ -173,6 +190,51 @@ export const Journal: React.FC = () => {
   const handleCheckin = async () => {
     const res = await runWeeklyCheckin();
     setCheckinResult({ success: res.success, message: res.message });
+  };
+
+  // Calculer et appliquer le TDEE saisi manuellement
+  const handleCalculateTDEE = async () => {
+    let computedTDEE = 0;
+    
+    if (tdeeCalcMethod === 'tracking') {
+      const avgCals = parseFloat(calcAvgCalories);
+      const startW = parseFloat(calcStartWeight);
+      const endW = parseFloat(calcEndWeight);
+      const days = parseInt(calcDuration);
+      
+      if (!isNaN(avgCals) && !isNaN(startW) && !isNaN(endW) && !isNaN(days) && days > 0) {
+        const weightChange = endW - startW;
+        computedTDEE = avgCals - (weightChange * 7700) / days;
+      }
+    } else {
+      const w = parseFloat(calcWeight);
+      const h = parseFloat(calcHeight);
+      const age = parseFloat(calcAge);
+      const mult = parseFloat(calcActivity);
+      
+      if (!isNaN(w) && !isNaN(h) && !isNaN(age) && !isNaN(mult)) {
+        let bmr = 10 * w + 6.25 * h - 5 * age;
+        if (calcGender === 'male') {
+          bmr += 5;
+        } else {
+          bmr -= 161;
+        }
+        computedTDEE = bmr * mult;
+      }
+    }
+    
+    if (computedTDEE > 0) {
+      const rounded = Math.round(computedTDEE);
+      await updateSettings({ defaultTDEE: rounded });
+      setIsTDEECalculatorOpen(false);
+      // Reset inputs
+      setCalcAvgCalories('');
+      setCalcStartWeight('');
+      setCalcEndWeight('');
+      setCalcWeight('');
+      setCalcHeight('');
+      setCalcAge('');
+    }
   };
 
   // Totaux nutritionnels quotidiens
@@ -723,13 +785,24 @@ export const Journal: React.FC = () => {
                     Déficit cible : <span className="font-semibold text-slate-200">-{settings.targetDeficit} kcal</span>.
                   </p>
                 )}
-                <button
-                  onClick={handleCheckin}
-                  disabled={isLoading}
-                  className="mt-2.5 text-xs font-semibold text-accent-teal bg-accent-teal/10 hover:bg-accent-teal/20 px-3 py-1.5 rounded-xl transition inline-flex items-center active:scale-95"
-                >
-                  Calculer le TDEE réel (Check-in)
-                </button>
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  <button
+                    onClick={handleCheckin}
+                    disabled={isLoading}
+                    className="text-xs font-semibold text-accent-teal bg-accent-teal/10 hover:bg-accent-teal/20 px-3 py-1.5 rounded-xl transition inline-flex items-center active:scale-95"
+                  >
+                    Calculer le TDEE réel (Check-in)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCalcWeight(currentDay?.dailyWeight ? currentDay.dailyWeight.toString() : '');
+                      setIsTDEECalculatorOpen(true);
+                    }}
+                    className="text-xs font-semibold text-slate-400 bg-zinc-900 hover:bg-zinc-850 px-3 py-1.5 rounded-xl transition inline-flex items-center active:scale-95"
+                  >
+                    Calculateur Manuel
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1123,6 +1196,207 @@ export const Journal: React.FC = () => {
                   Enregistrer
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isTDEECalculatorOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center">
+          <div className="bg-zinc-950 border-t border-zinc-800 w-full max-w-md rounded-t-3xl p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-200">
+            
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Calculateur Manuel
+                </span>
+                <h4 className="text-lg font-display font-extrabold text-slate-100">Calculer le TDEE</h4>
+              </div>
+              <button 
+                onClick={() => setIsTDEECalculatorOpen(false)}
+                className="p-1.5 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Segmented Controls */}
+            <div className="bg-zinc-900 p-1 rounded-2xl flex justify-between items-center text-xs font-semibold">
+              <button
+                onClick={() => setTdeeCalcMethod('tracking')}
+                className={`flex-1 py-2 text-center rounded-xl transition duration-200 ${
+                  tdeeCalcMethod === 'tracking' 
+                    ? 'bg-zinc-950 text-slate-100 shadow-md font-bold' 
+                    : 'text-slate-500 hover:text-slate-200'
+                }`}
+              >
+                Suivi (Calories/Poids)
+              </button>
+              <button
+                onClick={() => setTdeeCalcMethod('formula')}
+                className={`flex-1 py-2 text-center rounded-xl transition duration-200 ${
+                  tdeeCalcMethod === 'formula' 
+                    ? 'bg-zinc-950 text-slate-100 shadow-md font-bold' 
+                    : 'text-slate-500 hover:text-slate-200'
+                }`}
+              >
+                Formule (Taille/Âge)
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4">
+              {tdeeCalcMethod === 'tracking' ? (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Calories moyennes ingérées / jour</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="Ex: 2200"
+                        value={calcAvgCalories}
+                        onChange={(e) => setCalcAvgCalories(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                      />
+                      <span className="absolute right-4 top-2.5 text-xs font-semibold text-slate-500">kcal/jour</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Poids de départ (kg)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        inputMode="decimal"
+                        placeholder="Ex: 80.0"
+                        value={calcStartWeight}
+                        onChange={(e) => setCalcStartWeight(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Poids d'arrivée (kg)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        inputMode="decimal"
+                        placeholder="Ex: 79.5"
+                        value={calcEndWeight}
+                        onChange={(e) => setCalcEndWeight(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Durée de la période (jours)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Ex: 14"
+                        value={calcDuration}
+                        onChange={(e) => setCalcDuration(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                      />
+                      <span className="absolute right-4 top-2.5 text-xs font-semibold text-slate-500">jours</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Genre</label>
+                    <div className="bg-zinc-900 p-1 rounded-2xl flex justify-between items-center text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setCalcGender('male')}
+                        className={`flex-1 py-2 text-center rounded-xl transition duration-200 ${
+                          calcGender === 'male' 
+                            ? 'bg-zinc-950 text-slate-100 shadow-md' 
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Homme
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCalcGender('female')}
+                        className={`flex-1 py-2 text-center rounded-xl transition duration-200 ${
+                          calcGender === 'female' 
+                            ? 'bg-zinc-950 text-slate-100 shadow-md' 
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Femme
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Poids (kg)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        inputMode="decimal"
+                        placeholder="Ex: 75"
+                        value={calcWeight}
+                        onChange={(e) => setCalcWeight(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Taille (cm)</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Ex: 178"
+                        value={calcHeight}
+                        onChange={(e) => setCalcHeight(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Âge (ans)</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Ex: 30"
+                        value={calcAge}
+                        onChange={(e) => setCalcAge(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Niveau d'activité</label>
+                    <select
+                      value={calcActivity}
+                      onChange={(e) => setCalcActivity(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-2.5 text-xs font-semibold text-slate-250 focus:outline-none focus:border-accent-teal transition"
+                    >
+                      <option value="1.2">Sédentaire (Peu ou pas d'exercice)</option>
+                      <option value="1.375">Légèrement actif (Exercice léger 1-3 fois/semaine)</option>
+                      <option value="1.55">Modérément actif (Exercice modéré 3-5 fois/semaine)</option>
+                      <option value="1.725">Très actif (Exercice intense 6-7 fois/semaine)</option>
+                      <option value="1.9">Extrêmement actif (Entraînement double ou travail physique)</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCalculateTDEE}
+                className="w-full h-12 mt-4 bg-accent-teal text-black font-display font-extrabold rounded-2xl shadow-lg active:scale-95 transition flex items-center justify-center space-x-2 text-sm"
+              >
+                <span>Calculer & Appliquer comme TDEE</span>
+              </button>
             </div>
           </div>
         </div>
