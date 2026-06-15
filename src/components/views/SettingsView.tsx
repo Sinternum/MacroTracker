@@ -34,6 +34,7 @@ export const SettingsView: React.FC = () => {
   const [targetWeightDate, setTargetWeightDate] = useState<string>('');
   const [defaultTDEE, setDefaultTDEE] = useState<string>('');
   const [smoothedWeight, setSmoothedWeight] = useState<string>('');
+  const [height, setHeight] = useState<string>('');
 
   // États de statut
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export const SettingsView: React.FC = () => {
       setTargetWeightDate(settings.targetWeightDate || '');
       setDefaultTDEE(settings.defaultTDEE ? settings.defaultTDEE.toString() : '');
       setSmoothedWeight(settings.smoothedWeight ? settings.smoothedWeight.toString() : '');
+      setHeight(settings.height ? settings.height.toString() : '');
     }
   }, [settings]);
 
@@ -85,6 +87,7 @@ export const SettingsView: React.FC = () => {
     const targetW = parseFloat(targetWeight);
     const defTDEE = parseFloat(defaultTDEE);
     const smoothW = parseFloat(smoothedWeight);
+    const heightVal = parseFloat(height);
 
     await updateSettings({
       targetDeficit: deficitVal,
@@ -100,6 +103,7 @@ export const SettingsView: React.FC = () => {
       targetWeightDate: targetWeightDate || null,
       defaultTDEE: isNaN(defTDEE) ? 2200 : defTDEE,
       smoothedWeight: isNaN(smoothW) ? null : smoothW,
+      height: isNaN(heightVal) ? null : heightVal,
     });
 
     setSaveStatus('Objectifs enregistrés ✓');
@@ -440,6 +444,20 @@ export const SettingsView: React.FC = () => {
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
               />
               <p className="text-[10px] text-slate-500">Poids lissé de départ ou actuel de l'algorithme (EMA).</p>
+            </div>
+
+            {/* Taille (cm) */}
+            <div className="space-y-1.5 pt-3.5 border-t border-zinc-800/60">
+              <label className="text-xs font-semibold text-slate-400">Taille (cm)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Ex: 175"
+                value={height}
+                onChange={(e) => setHeight(e.target.value)}
+                className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
+              />
+              <p className="text-[10px] text-slate-500">Utilisée pour estimer précisément la longueur de vos pas et calculer vos calories d'activités dépensées.</p>
             </div>
           </div>
 

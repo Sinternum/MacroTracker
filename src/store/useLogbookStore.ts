@@ -43,6 +43,8 @@ export interface LogbookState {
   removeEntry: (date: string, entryId: string) => Promise<void>;
   updateEntryWeight: (date: string, entryId: string, weight: number) => Promise<void>;
   updateDailyWeight: (date: string, weight: number | null) => Promise<void>;
+  updateDailySteps: (date: string, steps: number | null) => Promise<void>;
+  updateDailyManualBurned: (date: string, calories: number | null) => Promise<void>;
 
   // Actions de gestion des aliments personnalisés
   addCustomFood: (food: Omit<CustomFood, 'id'>) => Promise<number>;
@@ -94,7 +96,8 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
           manualCalorieGoal: null,
           targetWeight: null,
           targetWeightDate: null,
-          mealTargets: {}
+          mealTargets: {},
+          height: null
         };
         await db.settings.add(settings);
       } else {
@@ -118,6 +121,10 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
         }
         if (settings.mealTargets === undefined) {
           settings.mealTargets = {};
+          updated = true;
+        }
+        if (settings.height === undefined) {
+          settings.height = null;
           updated = true;
         }
         if (updated) {
@@ -255,6 +262,46 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
       await get().recalculateAllEMA();
     } catch (err: any) {
       set({ error: err.message || 'Erreur lors de la mise à jour du poids.' });
+      set({ isLoading: false });
+    }
+  },
+
+  updateDailySteps: async (date: string, steps: number | null) => {
+    set({ isLoading: true, error: null });
+    try {
+      let day = await db.logbook.get(date);
+      if (!day) {
+        day = { date, entries: [], dailyWeight: null, steps };
+      } else {
+        day.steps = steps;
+      }
+      await db.logbook.put(day);
+      if (date === get().selectedDate) {
+        set({ currentDay: day });
+      }
+    } catch (err: any) {
+      set({ error: err.message || 'Erreur lors de la mise à jour des pas.' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  updateDailyManualBurned: async (date: string, calories: number | null) => {
+    set({ isLoading: true, error: null });
+    try {
+      let day = await db.logbook.get(date);
+      if (!day) {
+        day = { date, entries: [], dailyWeight: null, manualBurnedCalories: calories };
+      } else {
+        day.manualBurnedCalories = calories;
+      }
+      await db.logbook.put(day);
+      if (date === get().selectedDate) {
+        set({ currentDay: day });
+      }
+    } catch (err: any) {
+      set({ error: err.message || 'Erreur lors de la mise à jour des calories dépensées.' });
+    } finally {
       set({ isLoading: false });
     }
   },

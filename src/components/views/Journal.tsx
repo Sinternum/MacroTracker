@@ -14,7 +14,9 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  ExternalLink
+  ExternalLink,
+  Flame,
+  Footprints
 } from 'lucide-react';
 import { db, type LogbookDay, type LogbookEntry } from '../../db';
 
@@ -56,6 +58,8 @@ export const Journal: React.FC = () => {
     recipes,
     setSelectedDate,
     updateDailyWeight,
+    updateDailySteps,
+    updateDailyManualBurned,
     removeEntry,
     updateEntryWeight,
     runWeeklyCheckin,
@@ -104,15 +108,37 @@ export const Journal: React.FC = () => {
   const [calcAge, setCalcAge] = useState<string>('');
   const [calcActivity, setCalcActivity] = useState<string>('1.375');
 
-  // Charger les cibles de poids de l'input local
+  // Activités (Pas & Calories dépensées)
+  const [stepsInput, setStepsInput] = useState<string>('');
+  const [isAddingBurnedOpen, setIsAddingBurnedOpen] = useState<boolean>(false);
+  const [burnedAmountInput, setBurnedAmountInput] = useState<string>('');
+
+  // Charger les cibles de poids et d'activités de l'input local
   useEffect(() => {
     if (currentDay && currentDay.dailyWeight !== null) {
       setWeightInput(currentDay.dailyWeight.toString());
     } else {
       setWeightInput('');
     }
+    if (currentDay && currentDay.steps !== undefined && currentDay.steps !== null) {
+      setStepsInput(currentDay.steps.toString());
+    } else {
+      setStepsInput('');
+    }
     setCheckinResult(null);
   }, [currentDay, selectedDate]);
+
+  // Synchroniser les valeurs par défaut du calculateur TDEE à partir des settings
+  useEffect(() => {
+    if (settings) {
+      if (settings.height && !calcHeight) {
+        setCalcHeight(settings.height.toString());
+      }
+      if (settings.smoothedWeight && !calcWeight) {
+        setCalcWeight(settings.smoothedWeight.toString());
+      }
+    }
+  }, [settings]);
 
   // Récupérer les données du mois pour le calendrier
   useEffect(() => {
@@ -237,6 +263,31 @@ export const Journal: React.FC = () => {
     }
   };
 
+  // Mettre à jour le nombre de pas quotidien
+  const handleStepsChange = (val: string) => {
+    setStepsInput(val);
+    const parsed = parseInt(val);
+    if (!isNaN(parsed) && parsed >= 0) {
+      updateDailySteps(selectedDate, parsed);
+    } else if (val === '') {
+      updateDailySteps(selectedDate, null);
+    }
+  };
+
+  // Soumettre l'ajout de calories dépensées
+  const handleAddBurnedSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsed = parseFloat(burnedAmountInput);
+    if (isNaN(parsed) || parsed <= 0) return;
+    
+    const currentBurned = currentDay?.manualBurnedCalories || 0;
+    const newBurned = currentBurned + parsed;
+    
+    await updateDailyManualBurned(selectedDate, newBurned);
+    setIsAddingBurnedOpen(false);
+    setBurnedAmountInput('');
+  };
+
   // Totaux nutritionnels quotidiens
   const totals = currentDay 
     ? calculateDayTotals(currentDay, customFoods, recipes)
@@ -245,6 +296,18 @@ export const Journal: React.FC = () => {
   // Cibles quotidiennes
   const targetCals = getTargetCalories(settings);
   const targetMacros = getTargetMacros(settings);
+
+  // Activités & Calories dépensées (Calcul basé sur la taille et le poids)
+  const heightCm = settings?.height || 170; // Fallback 170 cm
+  const weightKg = currentDay?.dailyWeight || settings?.smoothedWeight || 70; // Fallback 70 kg
+  const strideLengthM = (heightCm * 0.414) / 100; // Estimation de la longueur de pas en mètres
+  const stepsCount = currentDay?.steps || 0;
+  const distanceKm = (stepsCount * strideLengthM) / 1000;
+  const stepsCals = distanceKm * weightKg * 0.73; // Dépense de marche : ~0.73 kcal/kg/km
+  
+  const manualCals = currentDay?.manualBurnedCalories || 0;
+  const burnedCals = Math.round(stepsCals + manualCals);
+  const remainingCals = targetCals - totals.calories + burnedCals;
 
   // Obtenir les détails pour l'affichage de l'historique
   const getEntryDetails = (entry: LogbookEntry) => {
@@ -456,7 +519,7 @@ export const Journal: React.FC = () => {
                   strokeWidth="7"
                   fill="transparent"
                   strokeDasharray={2 * Math.PI * 44}
-                  strokeDashoffset={2 * Math.PI * 44 - (Math.min(totals.calories, targetCals) / (targetCals || 1)) * (2 * Math.PI * 44)}
+                  strokeDashoffset={2 * Math.PI * 44 - (Math.min(totals.calories, targetCals + burnedCals) / ((targetCals + burnedCals) || 1)) * (2 * Math.PI * 44)}
                   strokeLinecap="round"
                   style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
                 />
@@ -464,9 +527,15 @@ export const Journal: React.FC = () => {
               <div className="absolute flex flex-col items-center justify-center text-center">
                 <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Objectif</span>
                 <span className="text-base font-display font-extrabold text-slate-100 tabular-nums">
-                  {targetCals}
+                  {targetCals + burnedCals}
                 </span>
-                <span className="text-[9px] text-slate-400 font-semibold">kcal</span>
+                {burnedCals > 0 ? (
+                  <span className="text-[7px] text-accent-teal font-bold uppercase tracking-wider block">
+                    +{burnedCals} act.
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-slate-400 font-semibold">kcal</span>
+                )}
               </div>
             </div>
 
@@ -474,11 +543,79 @@ export const Journal: React.FC = () => {
             <div className="text-center flex-1">
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Restantes</span>
               <span className={`text-xl font-display font-extrabold tabular-nums ${
-                targetCals - totals.calories >= 0 ? 'text-accent-teal' : 'text-rose-500'
+                remainingCals >= 0 ? 'text-accent-teal' : 'text-rose-500'
               }`}>
-                {Math.round(Math.abs(targetCals - totals.calories))} <span className="text-xs font-normal text-slate-500">kcal</span>
-                {targetCals - totals.calories < 0 && <span className="block text-[8px] font-bold uppercase text-rose-500">de trop</span>}
+                {Math.round(Math.abs(remainingCals))} <span className="text-xs font-normal text-slate-500">kcal</span>
+                {remainingCals < 0 && <span className="block text-[8px] font-bold uppercase text-rose-500">de trop</span>}
               </span>
+            </div>
+          </div>
+
+          {/* Section Activités */}
+          <div className="w-full border-t border-zinc-800/80 my-4" />
+          <div className="w-full max-w-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-[10px] font-display font-bold text-slate-400 tracking-wide uppercase flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-accent-violet" />
+                <span>Activités</span>
+              </h4>
+              <span className="text-xs font-bold text-slate-350 tabular-nums">
+                Total : {burnedCals} kcal
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Pas */}
+              <div className="bg-zinc-950 border border-zinc-850 rounded-2xl p-3 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                    <Footprints className="w-3 h-3 text-accent-teal" /> Pas
+                  </span>
+                  <span className="text-[9px] font-bold text-accent-teal tabular-nums">
+                    +{Math.round(stepsCals)} kcal
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    placeholder="0 pas"
+                    value={stepsInput}
+                    onChange={(e) => handleStepsChange(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-accent-teal transition font-semibold tabular-nums text-center"
+                  />
+                </div>
+              </div>
+
+              {/* Calories Manuelles */}
+              <div className="bg-zinc-950 border border-zinc-850 rounded-2xl p-3 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                    Manuel
+                  </span>
+                  {manualCals > 0 && (
+                    <button
+                      onClick={() => updateDailyManualBurned(selectedDate, null)}
+                      className="text-[9px] text-rose-500 hover:text-rose-600 font-bold"
+                      title="Effacer"
+                    >
+                      Effacer
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200 tabular-nums">
+                    +{manualCals} <span className="text-[9px] text-slate-500 font-normal">kcal</span>
+                  </span>
+                  <button
+                    onClick={() => setIsAddingBurnedOpen(true)}
+                    className="h-6 w-6 bg-accent-teal text-black flex items-center justify-center rounded-lg hover:bg-accent-teal/95 active:scale-95 transition text-sm font-bold shadow-md"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1399,6 +1536,74 @@ export const Journal: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {isAddingBurnedOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center">
+          <form 
+            onSubmit={handleAddBurnedSubmit}
+            className="bg-zinc-950 border-t border-zinc-800 w-full max-w-md rounded-t-3xl p-6 space-y-6 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-200"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Calories Dépensées
+                </span>
+                <h4 className="text-lg font-display font-extrabold text-slate-100">Ajouter manuellement</h4>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsAddingBurnedOpen(false)}
+                className="p-1.5 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Nombre de calories (kcal)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="any"
+                    inputMode="decimal"
+                    placeholder="Ex: 250"
+                    value={burnedAmountInput}
+                    onChange={(e) => setBurnedAmountInput(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-center text-xl font-display font-extrabold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                    autoFocus
+                  />
+                  <span className="absolute right-4 top-3 text-xs font-bold text-slate-500">kcal</span>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 pt-2">
+                {/* Cancel */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingBurnedOpen(false);
+                    setBurnedAmountInput('');
+                  }}
+                  className="flex-1 h-12 bg-rose-950/20 border border-rose-900/50 hover:bg-rose-900/30 text-rose-400 font-semibold rounded-2xl active:scale-95 transition flex items-center justify-center space-x-2 text-sm"
+                >
+                  <span>Annuler</span>
+                </button>
+
+                {/* Save */}
+                <button
+                  type="submit"
+                  className="flex-1 h-12 bg-accent-teal text-black font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150 text-sm"
+                >
+                  Ajouter
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       )}
 

@@ -46,6 +46,8 @@ export interface LogbookDay {
   entries: LogbookEntry[];
   dailyWeight: number | null; // poids corporel en kg pour cette journée
   smoothedWeight?: number | null; // poids lissé en kg pour cette journée (calculé)
+  steps?: number | null; // Nombre de pas du jour
+  manualBurnedCalories?: number | null; // Calories dépensées manuellement
 }
 
 export interface UserSettings {
@@ -64,6 +66,7 @@ export interface UserSettings {
   targetWeight?: number | null; // Objectif de poids cible (en kg)
   targetWeightDate?: string | null; // Date cible pour le poids (YYYY-MM-DD)
   mealTargets?: Record<string, number>; // Cibles caloriques par repas (ex: { 'Petit-déjeuner': 500 })
+  height?: number | null; // Taille en cm (pour le calcul des pas)
 }
 
 // Interface structurée pour les fichiers d'import/export
@@ -129,7 +132,8 @@ db.on('populate', () => {
     manualCalorieGoal: null,
     targetWeight: null,
     targetWeightDate: null,
-    mealTargets: {}
+    mealTargets: {},
+    height: null
   });
 });
 
