@@ -77,9 +77,9 @@ export const Journal: React.FC = () => {
   const [viewingEntry, setViewingEntry] = useState<LogbookEntry | null>(null);
   const [editWeight, setEditWeight] = useState<string>('');
 
-  // Cibles de repas et édition rapide
-  const [editingMealLimit, setEditingMealLimit] = useState<string | null>(null);
-  const [mealLimitInput, setMealLimitInput] = useState<string>('');
+  // Cibles de repas et édition rapide (modale)
+  const [selectedMealForLimit, setSelectedMealForLimit] = useState<string | null>(null);
+  const [mealLimitValue, setMealLimitValue] = useState<string>('');
   const [addingCustomMeal, setAddingCustomMeal] = useState<boolean>(false);
   const [newMealName, setNewMealName] = useState<string>('');
 
@@ -363,89 +363,6 @@ export const Journal: React.FC = () => {
       )}
 
       <div className="px-4 py-4 space-y-6 max-w-md mx-auto w-full">
-        
-        {/* Metabolic Checkin Notice */}
-        {settings && (
-          <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 rounded-3xl p-4 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-3 opacity-10">
-              <Sparkles className="h-20 w-20 text-accent-teal" />
-            </div>
-            
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-accent-teal/10 rounded-2xl text-accent-teal mt-0.5">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div className="space-y-1 flex-1">
-                <h3 className="text-sm font-display font-semibold text-slate-200">Métabolisme & TDEE</h3>
-                {isEditingTDEE ? (
-                  <form 
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const parsed = parseInt(tdeeInput);
-                      if (!isNaN(parsed) && parsed > 0) {
-                        await updateSettings({ defaultTDEE: parsed });
-                      }
-                      setIsEditingTDEE(false);
-                    }}
-                    className="flex items-center space-x-2 mt-1.5"
-                  >
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={tdeeInput}
-                      onChange={(e) => setTdeeInput(e.target.value)}
-                      className="w-24 bg-black border border-zinc-800 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-teal"
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      className="px-2 py-1 bg-accent-teal text-black rounded-lg text-[10px] font-bold active:scale-95 transition"
-                    >
-                      OK
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingTDEE(false)}
-                      className="text-slate-400 hover:text-slate-200"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </form>
-                ) : (
-                  <p 
-                    className="text-xs text-slate-400 leading-relaxed cursor-pointer hover:text-slate-200 group"
-                    onClick={() => {
-                      setTdeeInput(settings.defaultTDEE.toString());
-                      setIsEditingTDEE(true);
-                    }}
-                    title="Cliquez pour modifier le TDEE directement"
-                  >
-                    TDEE actuel : <span className="font-semibold text-slate-200 border-b border-dashed border-slate-500/50 hover:border-slate-200">{settings.defaultTDEE} kcal ✎</span>.
-                    Déficit cible : <span className="font-semibold text-slate-200">-{settings.targetDeficit} kcal</span>.
-                  </p>
-                )}
-                <button
-                  onClick={handleCheckin}
-                  disabled={isLoading}
-                  className="mt-2.5 text-xs font-semibold text-accent-teal bg-accent-teal/10 hover:bg-accent-teal/20 px-3 py-1.5 rounded-xl transition inline-flex items-center active:scale-95"
-                >
-                  Calculer le TDEE réel (Check-in)
-                </button>
-              </div>
-            </div>
-
-            {checkinResult && (
-              <div className={`mt-3 p-3 rounded-2xl text-xs flex items-start space-x-2 ${
-                checkinResult.success 
-                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
-                  : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
-              }`}>
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <p>{checkinResult.message}</p>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Résumé de la Journée - Cercle de Progression */}
         <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-6 shadow-lg backdrop-blur-sm flex flex-col items-center justify-center">
@@ -655,51 +572,21 @@ export const Journal: React.FC = () => {
                               )}
                             </div>
                           </td>
-                          <td className="py-2.5 text-right tabular-nums">
+                          <td className="py-1 text-right tabular-nums">
                             <div className="flex flex-col items-end justify-center">
-                              {editingMealLimit === mealName ? (
-                                <div className="flex items-center space-x-1">
-                                  <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    placeholder="Cible"
-                                    value={mealLimitInput}
-                                    onChange={(e) => setMealLimitInput(e.target.value)}
-                                    className="w-14 bg-black border border-zinc-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200 text-right focus:outline-none"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={async () => {
-                                      const val = parseFloat(mealLimitInput);
-                                      await updateMealCalorieTarget(mealName, isNaN(val) ? null : val);
-                                      setEditingMealLimit(null);
-                                    }}
-                                    className="px-1 bg-accent-teal text-black rounded text-[9px] font-bold"
-                                  >
-                                    ✓
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingMealLimit(null)}
-                                    className="text-slate-500 hover:text-slate-300"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <div 
-                                  onClick={() => {
-                                    setMealLimitInput(hasTarget ? target.toString() : '');
-                                    setEditingMealLimit(mealName);
-                                  }}
-                                  className="cursor-pointer hover:underline text-slate-200 flex items-center space-x-1 justify-end font-semibold"
-                                >
-                                  <span>{Math.round(mealTotals.calories)}</span>
-                                  <span className="text-[10px] text-slate-500 font-normal">
-                                    / {hasTarget ? `${target}` : '—'}
-                                  </span>
-                                  <span className="text-[9px] text-accent-teal opacity-0 group-hover:opacity-100 transition pl-0.5">✎</span>
-                                </div>
-                              )}
+                              <div 
+                                onClick={() => {
+                                  setMealLimitValue(hasTarget ? target.toString() : '');
+                                  setSelectedMealForLimit(mealName);
+                                }}
+                                className="cursor-pointer hover:bg-zinc-800/40 px-2 py-1.5 rounded-xl transition text-slate-200 flex items-center space-x-1.5 justify-end font-semibold group select-none"
+                              >
+                                <span>{Math.round(mealTotals.calories)}</span>
+                                <span className="text-[10px] text-slate-500 font-normal">
+                                  / {hasTarget ? `${target}` : '—'}
+                                </span>
+                                <span className="text-[9px] text-accent-teal opacity-0 group-hover:opacity-100 transition pl-0.5">✎</span>
+                              </div>
                             </div>
                           </td>
                           <td className="py-2.5 text-right tabular-nums text-violet-400 font-medium">{Math.round(mealTotals.protein)}g</td>
@@ -775,6 +662,89 @@ export const Journal: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Metabolic Checkin Notice */}
+        {settings && (
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 rounded-3xl p-4 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3 opacity-10">
+              <Sparkles className="h-20 w-20 text-accent-teal" />
+            </div>
+            
+            <div className="flex items-start space-x-3">
+              <div className="p-2 bg-accent-teal/10 rounded-2xl text-accent-teal mt-0.5">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="space-y-1 flex-1">
+                <h3 className="text-sm font-display font-semibold text-slate-200">Métabolisme & TDEE</h3>
+                {isEditingTDEE ? (
+                  <form 
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const parsed = parseInt(tdeeInput);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        await updateSettings({ defaultTDEE: parsed });
+                      }
+                      setIsEditingTDEE(false);
+                    }}
+                    className="flex items-center space-x-2 mt-1.5"
+                  >
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={tdeeInput}
+                      onChange={(e) => setTdeeInput(e.target.value)}
+                      className="w-24 bg-black border border-zinc-800 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-teal"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-2 py-1 bg-accent-teal text-black rounded-lg text-[10px] font-bold active:scale-95 transition"
+                    >
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTDEE(false)}
+                      className="text-slate-400 hover:text-slate-200"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <p 
+                    className="text-xs text-slate-400 leading-relaxed cursor-pointer hover:text-slate-200 group"
+                    onClick={() => {
+                      setTdeeInput(settings.defaultTDEE.toString());
+                      setIsEditingTDEE(true);
+                    }}
+                    title="Cliquez pour modifier le TDEE directement"
+                  >
+                    TDEE actuel : <span className="font-semibold text-slate-200 border-b border-dashed border-slate-500/50 hover:border-slate-200">{settings.defaultTDEE} kcal ✎</span>.
+                    Déficit cible : <span className="font-semibold text-slate-200">-{settings.targetDeficit} kcal</span>.
+                  </p>
+                )}
+                <button
+                  onClick={handleCheckin}
+                  disabled={isLoading}
+                  className="mt-2.5 text-xs font-semibold text-accent-teal bg-accent-teal/10 hover:bg-accent-teal/20 px-3 py-1.5 rounded-xl transition inline-flex items-center active:scale-95"
+                >
+                  Calculer le TDEE réel (Check-in)
+                </button>
+              </div>
+            </div>
+
+            {checkinResult && (
+              <div className={`mt-3 p-3 rounded-2xl text-xs flex items-start space-x-2 ${
+                checkinResult.success 
+                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                  : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+              }`}>
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <p>{checkinResult.message}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Food Log Entries Card */}
         <div className="space-y-4">
@@ -1084,6 +1054,79 @@ export const Journal: React.FC = () => {
           </div>
         );
       })()}
+
+      {selectedMealForLimit && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center">
+          <div className="bg-zinc-950 border-t border-zinc-800 w-full max-w-md rounded-t-3xl p-6 space-y-6 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-200">
+            
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Objectif Calorique
+                </span>
+                <h4 className="text-lg font-display font-extrabold text-slate-100">{selectedMealForLimit}</h4>
+              </div>
+              <button 
+                onClick={() => setSelectedMealForLimit(null)}
+                className="p-1.5 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Objectif (kcal)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Ex: 500"
+                    value={mealLimitValue}
+                    onChange={(e) => setMealLimitValue(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-center text-xl font-display font-extrabold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                    autoFocus
+                  />
+                  <span className="absolute right-4 top-3 text-xs font-bold text-slate-500">kcal</span>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 pt-2">
+                {/* Clear / Supprimer la cible */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await updateMealCalorieTarget(selectedMealForLimit, null);
+                    setSelectedMealForLimit(null);
+                  }}
+                  className="flex-1 h-12 bg-rose-950/20 border border-rose-900/50 hover:bg-rose-900/30 text-rose-400 font-semibold rounded-2xl active:scale-95 transition flex items-center justify-center space-x-2 text-sm"
+                >
+                  <span>Sans limite</span>
+                </button>
+
+                {/* Save / Enregistrer */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const parsed = parseFloat(mealLimitValue);
+                    if (!isNaN(parsed) && parsed > 0) {
+                      await updateMealCalorieTarget(selectedMealForLimit, parsed);
+                    } else {
+                      await updateMealCalorieTarget(selectedMealForLimit, null);
+                    }
+                    setSelectedMealForLimit(null);
+                  }}
+                  className="flex-1 h-12 bg-accent-teal text-black font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150 text-sm"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

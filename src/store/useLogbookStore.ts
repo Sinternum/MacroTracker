@@ -342,15 +342,18 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
     try {
       const current = await db.settings.get(1);
       if (current) {
-        const mealTargets = current.mealTargets || {};
+        const mealTargets = { ...(current.mealTargets || {}) };
         if (targetCalories === null) {
           delete mealTargets[mealName];
         } else {
           mealTargets[mealName] = targetCalories;
         }
-        current.mealTargets = mealTargets;
-        await db.settings.put(current);
-        set({ settings: current });
+        const updated = {
+          ...current,
+          mealTargets
+        };
+        await db.settings.put(updated);
+        set({ settings: updated });
       }
     } catch (err: any) {
       set({ error: err.message || 'Erreur lors de la mise à jour de la cible calorique du repas.' });
