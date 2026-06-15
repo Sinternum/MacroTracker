@@ -8,7 +8,10 @@ import {
   Upload, 
   Check, 
   AlertCircle, 
-  TrendingDown
+  TrendingDown,
+  Scale,
+  Calendar,
+  Sparkles
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
@@ -26,6 +29,12 @@ export const SettingsView: React.FC = () => {
   const [carbSplit, setCarbSplit] = useState<string>('');
   const [fatSplit, setFatSplit] = useState<string>('');
   
+  // Nouveaux états locaux pour objectifs personnalisés et poids cible
+  const [calorieGoalMode, setCalorieGoalMode] = useState<'dynamic' | 'manual'>('dynamic');
+  const [manualCalorieGoal, setManualCalorieGoal] = useState<string>('');
+  const [targetWeight, setTargetWeight] = useState<string>('');
+  const [targetWeightDate, setTargetWeightDate] = useState<string>('');
+
   // États de statut
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -41,6 +50,11 @@ export const SettingsView: React.FC = () => {
       setProtSplit(settings.macroSplit.protein.toString());
       setCarbSplit(settings.macroSplit.carbs.toString());
       setFatSplit(settings.macroSplit.fat.toString());
+      
+      setCalorieGoalMode(settings.calorieGoalMode || 'dynamic');
+      setManualCalorieGoal(settings.manualCalorieGoal ? settings.manualCalorieGoal.toString() : '');
+      setTargetWeight(settings.targetWeight ? settings.targetWeight.toString() : '');
+      setTargetWeightDate(settings.targetWeightDate || '');
     }
   }, [settings]);
 
@@ -65,6 +79,9 @@ export const SettingsView: React.FC = () => {
     const deficitVal = parseFloat(deficit);
     if (isNaN(deficitVal) || deficitVal < 0) return;
 
+    const manualCalGoal = parseFloat(manualCalorieGoal);
+    const targetW = parseFloat(targetWeight);
+
     await updateSettings({
       targetDeficit: deficitVal,
       macroSplitType: splitType,
@@ -72,10 +89,14 @@ export const SettingsView: React.FC = () => {
         protein: protVal,
         carbs: carbVal,
         fat: fatVal,
-      }
+      },
+      calorieGoalMode,
+      manualCalorieGoal: isNaN(manualCalGoal) ? null : manualCalGoal,
+      targetWeight: isNaN(targetW) ? null : targetW,
+      targetWeightDate: targetWeightDate || null,
     });
 
-    setSaveStatus('Réglages sauvegardés ✓');
+    setSaveStatus('Objectifs enregistrés ✓');
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
@@ -173,134 +194,223 @@ export const SettingsView: React.FC = () => {
           </div>
         )}
 
-        {/* Section 1 : Formulaire Paramètres de base */}
-        <form onSubmit={handleSaveSettings} className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-5 shadow-lg">
-          <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase flex items-center space-x-2">
-            <Sliders className="h-4.5 w-4.5 text-accent-violet" />
-            <span>Objectifs & Répartition</span>
-          </h3>
+        {/* Formulaire complet de réglages */}
+        <form onSubmit={handleSaveSettings} className="space-y-6">
+          
+          {/* Section 1 : Cibles & Mode */}
+          <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-5 shadow-lg">
+            <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase flex items-center space-x-2">
+              <Sliders className="h-4.5 w-4.5 text-accent-violet" />
+              <span>Objectifs Caloriques</span>
+            </h3>
 
-          {/* Déficit Cible */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-400 flex items-center space-x-1.5">
-              <TrendingDown className="h-4 w-4 text-rose-500" />
-              <span>Déficit Calorique Cible (kcal)</span>
-            </label>
-            <input
-              type="number"
-              inputMode="decimal"
-              pattern="[0-9]*"
-              required
-              value={deficit}
-              onChange={(e) => setDeficit(e.target.value)}
-              className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
-            />
-            <p className="text-[10px] text-slate-500">Sera soustrait de votre TDEE calculé (ex: 500 pour perdre ~0.5kg/semaine).</p>
-          </div>
-
-          {/* Sélecteur de type de macros (Segmented control) */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-400">Calcul des Macronutriments</label>
-            <div className="bg-black p-1 rounded-xl flex justify-between items-center text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setSplitType('percentage')}
-                className={`flex-1 py-1.5 text-center rounded-lg transition ${
-                  splitType === 'percentage' ? 'bg-zinc-800 text-slate-100' : 'text-slate-500'
-                }`}
-              >
-                Pourcentages (%)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSplitType('grams')}
-                className={`flex-1 py-1.5 text-center rounded-lg transition ${
-                  splitType === 'grams' ? 'bg-zinc-800 text-slate-100' : 'text-slate-500'
-                }`}
-              >
-                Grammes fixes (g)
-              </button>
+            {/* Sélecteur Mode Objectif (Segmented control) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-400">Calcul des Calories Cibles</label>
+              <div className="bg-black p-1 rounded-xl flex justify-between items-center text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setCalorieGoalMode('dynamic')}
+                  className={`flex-1 py-1.5 text-center rounded-lg transition active:scale-98 ${
+                    calorieGoalMode === 'dynamic' ? 'bg-zinc-800 text-slate-100 shadow' : 'text-slate-500'
+                  }`}
+                >
+                  Calculé (TDEE - Déficit)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCalorieGoalMode('manual')}
+                  className={`flex-1 py-1.5 text-center rounded-lg transition active:scale-98 ${
+                    calorieGoalMode === 'manual' ? 'bg-zinc-800 text-slate-100 shadow' : 'text-slate-500'
+                  }`}
+                >
+                  Manuel personnalisé
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Grid Macros Split */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase text-center block">Prot</label>
-              <div className="relative">
+            {/* Inputs Conditionnels */}
+            {calorieGoalMode === 'manual' ? (
+              <div className="space-y-1.5 animate-in fade-in duration-200">
+                <label className="text-xs font-semibold text-slate-400">Objectif Calorique Manuel (kcal)</label>
                 <input
                   type="number"
                   inputMode="decimal"
                   pattern="[0-9]*"
                   required
-                  value={protSplit}
-                  onChange={(e) => setProtSplit(e.target.value)}
-                  className="w-full bg-black border border-zinc-800 rounded-xl py-2.5 text-sm text-slate-200 text-center focus:outline-none font-bold"
+                  placeholder="Ex: 2000"
+                  value={manualCalorieGoal}
+                  onChange={(e) => setManualCalorieGoal(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
                 />
-                <span className="absolute right-2.5 top-3 text-[10px] text-slate-600 font-bold">
-                  {isPercentage ? '%' : 'g'}
-                </span>
               </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase text-center block">Gluc</label>
-              <div className="relative">
+            ) : (
+              <div className="space-y-1.5 animate-in fade-in duration-200">
+                <label className="text-xs font-semibold text-slate-400 flex items-center space-x-1.5">
+                  <TrendingDown className="h-4 w-4 text-rose-500" />
+                  <span>Déficit Calorique Cible (kcal)</span>
+                </label>
                 <input
                   type="number"
                   inputMode="decimal"
                   pattern="[0-9]*"
                   required
-                  value={carbSplit}
-                  onChange={(e) => setCarbSplit(e.target.value)}
-                  className="w-full bg-black border border-zinc-800 rounded-xl py-2.5 text-sm text-slate-200 text-center focus:outline-none font-bold"
+                  value={deficit}
+                  onChange={(e) => setDeficit(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
+                  placeholder="500"
                 />
-                <span className="absolute right-2.5 top-3 text-[10px] text-slate-600 font-bold">
-                  {isPercentage ? '%' : 'g'}
-                </span>
+                <p className="text-[10px] text-slate-500">Sera soustrait de votre TDEE calculé automatiquement (ex: 500 kcal).</p>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2 : Répartition Macros */}
+          <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-5 shadow-lg">
+            <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase flex items-center space-x-2">
+              <Sliders className="h-4.5 w-4.5 text-accent-teal" />
+              <span>Répartition des Macros</span>
+            </h3>
+
+            {/* Type de répartition (Segmented control) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-400">Format des Objectifs</label>
+              <div className="bg-black p-1 rounded-xl flex justify-between items-center text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setSplitType('percentage')}
+                  className={`flex-1 py-1.5 text-center rounded-lg transition active:scale-98 ${
+                    splitType === 'percentage' ? 'bg-zinc-800 text-slate-100 shadow' : 'text-slate-500'
+                  }`}
+                >
+                  Pourcentages (%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSplitType('grams')}
+                  className={`flex-1 py-1.5 text-center rounded-lg transition active:scale-98 ${
+                    splitType === 'grams' ? 'bg-zinc-800 text-slate-100 shadow' : 'text-slate-500'
+                  }`}
+                >
+                  Grammes fixes (g)
+                </button>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase text-center block">Lip</label>
-              <div className="relative">
+            {/* Inputs Macros */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase text-center block">Prot</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
+                    required
+                    value={protSplit}
+                    onChange={(e) => setProtSplit(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl py-2.5 text-sm text-slate-200 text-center focus:outline-none font-bold"
+                  />
+                  <span className="absolute right-2.5 top-3 text-[10px] text-slate-600 font-bold">
+                    {isPercentage ? '%' : 'g'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase text-center block">Gluc</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
+                    required
+                    value={carbSplit}
+                    onChange={(e) => setCarbSplit(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl py-2.5 text-sm text-slate-200 text-center focus:outline-none font-bold"
+                  />
+                  <span className="absolute right-2.5 top-3 text-[10px] text-slate-600 font-bold">
+                    {isPercentage ? '%' : 'g'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase text-center block">Lip</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
+                    required
+                    value={fatSplit}
+                    onChange={(e) => setFatSplit(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl py-2.5 text-sm text-slate-200 text-center focus:outline-none font-bold"
+                  />
+                  <span className="absolute right-2.5 top-3 text-[10px] text-slate-600 font-bold">
+                    {isPercentage ? '%' : 'g'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contrôle de validité pourcentages */}
+            {isPercentage && (
+              <div className="flex items-center space-x-2">
+                <div className={`p-1 rounded-full shrink-0 ${isPercentSplitValid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                  {isPercentSplitValid ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                </div>
+                <span className={`text-[11px] font-semibold ${isPercentSplitValid ? 'text-slate-400' : 'text-rose-400'}`}>
+                  {isPercentSplitValid 
+                    ? 'Répartition valide (total 100 %)'
+                    : `Le total doit faire 100 % (Actuel : ${totalPercentage} %)`}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3 : Objectif de Poids Temporel */}
+          <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-4 shadow-lg">
+            <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase flex items-center space-x-2">
+              <Scale className="h-4.5 w-4.5 text-accent-violet" />
+              <span>Objectif de Poids</span>
+            </h3>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Poids Cible (kg)</label>
                 <input
                   type="number"
+                  step="0.1"
                   inputMode="decimal"
-                  pattern="[0-9]*"
-                  required
-                  value={fatSplit}
-                  onChange={(e) => setFatSplit(e.target.value)}
-                  className="w-full bg-black border border-zinc-800 rounded-xl py-2.5 text-sm text-slate-200 text-center focus:outline-none font-bold"
+                  placeholder="Ex: 75.0"
+                  value={targetWeight}
+                  onChange={(e) => setTargetWeight(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
                 />
-                <span className="absolute right-2.5 top-3 text-[10px] text-slate-600 font-bold">
-                  {isPercentage ? '%' : 'g'}
-                </span>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Date Cible</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={targetWeightDate}
+                    onChange={(e) => setTargetWeightDate(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-accent-violet font-semibold text-center"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Validation Pourcentages Alert */}
-          {isPercentage && (
-            <div className="flex items-center space-x-2">
-              <div className={`p-1 rounded-full shrink-0 ${isPercentSplitValid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                {isPercentSplitValid ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-              </div>
-              <span className={`text-[11px] font-semibold ${isPercentSplitValid ? 'text-slate-400' : 'text-rose-400'}`}>
-                {isPercentSplitValid 
-                  ? 'Répartition valide (total 100 %)'
-                  : `Le total doit faire 100 % (Actuel : ${totalPercentage} %)`}
-              </span>
-            </div>
-          )}
-
-          {/* Bouton de Validation */}
+          {/* Validation Form Button */}
           <button
             type="submit"
             disabled={isLoading || !isPercentSplitValid}
-            className="w-full h-12 bg-accent-violet text-white font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150 disabled:opacity-50"
+            className="w-full h-14 bg-gradient-to-r from-accent-teal to-blue-600 text-white font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150 disabled:opacity-50"
           >
-            Sauvegarder les Objectifs
+            Sauvegarder tous les objectifs
           </button>
 
           {saveStatus && (
@@ -308,9 +418,10 @@ export const SettingsView: React.FC = () => {
               {saveStatus}
             </p>
           )}
+
         </form>
 
-        {/* Section 2 : Données & Sauvegarde */}
+        {/* Section 4 : Données & Sauvegarde */}
         <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-5 shadow-lg">
           <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase flex items-center space-x-2">
             <Database className="h-4.5 w-4.5 text-blue-500" />

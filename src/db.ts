@@ -23,6 +23,7 @@ export interface Recipe {
   name: string;
   ingredients: RecipeIngredient[];
   totalCookedWeight: number; // poids total cuit final de la recette en grammes
+  notes?: string; // notes/instructions de préparation (texte additionnel optionnel)
 }
 export interface LogbookEntry {
   id: string; // crypto.randomUUID() ou id unique généré à la volée
@@ -56,6 +57,10 @@ export interface UserSettings {
   macroSplitType: 'percentage' | 'grams'; // Type de répartition (pourcentage ou absolu)
   defaultTDEE: number; // TDEE de base estimé au départ (ex: 2000 kcal)
   smoothedWeight?: number | null; // Dernier poids lissé calculé par l'algorithme (en kg)
+  calorieGoalMode: 'dynamic' | 'manual'; // Mode de calcul des calories cibles
+  manualCalorieGoal?: number | null; // Objectif calorique manuel
+  targetWeight?: number | null; // Objectif de poids cible (en kg)
+  targetWeightDate?: string | null; // Date cible pour le poids (YYYY-MM-DD)
 }
 
 // Interface structurée pour les fichiers d'import/export
@@ -116,7 +121,11 @@ db.on('populate', () => {
     macroSplit: { protein: 30, carbs: 40, fat: 30 },
     macroSplitType: 'percentage',
     defaultTDEE: 2200,
-    smoothedWeight: null
+    smoothedWeight: null,
+    calorieGoalMode: 'dynamic',
+    manualCalorieGoal: null,
+    targetWeight: null,
+    targetWeightDate: null
   });
 });
 

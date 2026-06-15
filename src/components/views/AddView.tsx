@@ -51,6 +51,7 @@ export const AddView: React.FC = () => {
   const [selectedIngredientId, setSelectedIngredientId] = useState<string>('');
   const [ingredientRawWeight, setIngredientRawWeight] = useState<string>('');
   const [totalCookedWeight, setTotalCookedWeight] = useState<string>('');
+  const [recipeNotes, setRecipeNotes] = useState<string>('');
 
   // Saisies Quick Add
   const [quickAddCalories, setQuickAddCalories] = useState('');
@@ -149,6 +150,7 @@ export const AddView: React.FC = () => {
       name: newRecipeName,
       ingredients: recipeIngredients,
       totalCookedWeight: cookedWeight,
+      notes: recipeNotes || undefined
     });
 
     // Reset
@@ -158,6 +160,7 @@ export const AddView: React.FC = () => {
     setSelectedIngredientId('');
     setIngredientRawWeight('');
     setTotalCookedWeight('');
+    setRecipeNotes('');
   };
 
   // Soumettre un Quick Add
@@ -711,6 +714,18 @@ export const AddView: React.FC = () => {
                   />
                   <span className="absolute right-4 top-3 text-xs font-bold text-slate-500">g cuit</span>
                 </div>
+              </div>
+
+              {/* Instructions de préparation */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Notes / Instructions de préparation (facultatif)</label>
+                <textarea
+                  placeholder="Ex: 2 min au micro-ondes, mélanger avec la cannelle..."
+                  value={recipeNotes}
+                  onChange={(e) => setRecipeNotes(e.target.value)}
+                  rows={3}
+                  className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent-teal transition font-medium"
+                />
               </div>
 
               {/* Validation */}

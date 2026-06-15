@@ -9,9 +9,16 @@ import {
   Scale, 
   Utensils, 
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Calendar as CalendarIcon,
+  TrendingDown,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  X,
+  Check
 } from 'lucide-react';
-import { type LogbookEntry } from '../../db';
+import { db, type LogbookDay, type LogbookEntry } from '../../db';
 
 // Formatteur de date premium en français
 const formatJournalDate = (dateStr: string) => {
@@ -38,7 +45,6 @@ const formatJournalDate = (dateStr: string) => {
       day: 'numeric',
       month: 'long',
     });
-    // Capitaliser la première lettre du jour (ex: Mardi 14 juin)
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   }
 };
@@ -53,6 +59,7 @@ export const Journal: React.FC = () => {
     setSelectedDate,
     updateDailyWeight,
     removeEntry,
+    updateEntryWeight,
     runWeeklyCheckin,
     isLoading
   } = useLogbookStore();
@@ -60,7 +67,17 @@ export const Journal: React.FC = () => {
   const [weightInput, setWeightInput] = useState<string>('');
   const [checkinResult, setCheckinResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Mettre à jour l'input de poids lorsque le jour sélectionné ou son poids change
+  // États du calendrier mensuel
+  const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
+  const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth()); // 0-11
+  const [monthLogDays, setMonthLogDays] = useState<LogbookDay[]>([]);
+
+  // État de la modale de détails d'une entrée
+  const [viewingEntry, setViewingEntry] = useState<LogbookEntry | null>(null);
+  const [editWeight, setEditWeight] = useState<string>('');
+
+  // Charger les cibles de poids de l'input local
   useEffect(() => {
     if (currentDay && currentDay.dailyWeight !== null) {
       setWeightInput(currentDay.dailyWeight.toString());
@@ -70,7 +87,28 @@ export const Journal: React.FC = () => {
     setCheckinResult(null);
   }, [currentDay, selectedDate]);
 
-  // Navigation des jours
+  // Récupérer les données du mois pour le calendrier
+  useEffect(() => {
+    const fetchMonthData = async () => {
+      const yearStr = calendarYear.toString();
+      const monthStr = String(calendarMonth + 1).padStart(2, '0');
+      const start = `${yearStr}-${monthStr}-01`;
+      const end = `${yearStr}-${monthStr}-32`; // Couvre jusqu'au 31
+
+      try {
+        const days = await db.logbook
+          .where('date')
+          .between(start, end, true, true)
+          .toArray();
+        setMonthLogDays(days);
+      } catch (err) {
+        console.error("Erreur lors de la récupération des données du calendrier :", err);
+      }
+    };
+    fetchMonthData();
+  }, [calendarYear, calendarMonth, currentDay, selectedDate]);
+
+  // Ajuster le jour
   const adjustDate = (days: number) => {
     const current = new Date(selectedDate + 'T12:00:00');
     current.setDate(current.getDate() + days);
@@ -80,7 +118,24 @@ export const Journal: React.FC = () => {
     setSelectedDate(`${year}-${month}-${day}`);
   };
 
-  // Gestion de la saisie du poids
+  // Naviguer dans les mois du calendrier
+  const adjustCalendarMonth = (months: number) => {
+    let newMonth = calendarMonth + months;
+    let newYear = calendarYear;
+
+    if (newMonth > 11) {
+      newMonth = 0;
+      newYear += 1;
+    } else if (newMonth < 0) {
+      newMonth = 11;
+      newYear -= 1;
+    }
+
+    setCalendarMonth(newMonth);
+    setCalendarYear(newYear);
+  };
+
+  // Mettre à jour le poids quotidien
   const handleWeightChange = (val: string) => {
     setWeightInput(val);
     const parsed = parseFloat(val);
@@ -91,22 +146,35 @@ export const Journal: React.FC = () => {
     }
   };
 
-  // Déclencher le check-in métabolique
+  // Soumettre l'édition de portion
+  const handleEditPortionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!viewingEntry) return;
+
+    const parsedWeight = parseFloat(editWeight);
+    if (isNaN(parsedWeight) || parsedWeight <= 0) return;
+
+    await updateEntryWeight(selectedDate, viewingEntry.id, parsedWeight);
+    setViewingEntry(null);
+    setEditWeight('');
+  };
+
+  // Déclencher le check-in
   const handleCheckin = async () => {
     const res = await runWeeklyCheckin();
     setCheckinResult({ success: res.success, message: res.message });
   };
 
-  // Calculer les totaux de la journée active
+  // Totaux nutritionnels quotidiens
   const totals = currentDay 
     ? calculateDayTotals(currentDay, customFoods, recipes)
     : { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
-  // Cibles quotidiennes calculées
+  // Cibles quotidiennes
   const targetCals = getTargetCalories(settings);
   const targetMacros = getTargetMacros(settings);
 
-  // Détails enrichis pour chaque aliment consommé
+  // Obtenir les détails pour l'affichage de l'historique
   const getEntryDetails = (entry: LogbookEntry) => {
     if (entry.type === 'food') {
       const food = customFoods.find(f => f.id === entry.foodId);
@@ -143,10 +211,54 @@ export const Journal: React.FC = () => {
     return null;
   };
 
+  // Calcul du calendrier
+  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const firstDayOfWeek = (new Date(calendarYear, calendarMonth, 1).getDay() + 6) % 7; // Lun-Dim -> 0-6
+
+  // Générer le tableau des jours du mois
+  const calendarCells = [];
+  // Remplir les jours vides du début du mois
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    calendarCells.push(null);
+  }
+  // Remplir les jours réels
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendarCells.push(d);
+  }
+
+  // Calculer la couleur de conformité d'une date pour le calendrier
+  const getDateComplianceClass = (dayNum: number): string => {
+    const formattedDate = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    const dayData = monthLogDays.find(day => day.date === formattedDate);
+    
+    if (!dayData || dayData.entries.length === 0) {
+      return 'bg-zinc-900/40 text-slate-600 border border-transparent';
+    }
+
+    const dayTotals = calculateDayTotals(dayData, customFoods, recipes);
+    const diff = Math.abs(dayTotals.calories - targetCals);
+
+    let baseStyle = '';
+    if (diff <= 100) {
+      baseStyle = 'bg-emerald-500 text-black font-extrabold border-emerald-400';
+    } else if (diff <= 250) {
+      baseStyle = 'bg-amber-500 text-black font-extrabold border-amber-400';
+    } else {
+      baseStyle = 'bg-rose-500 text-white font-extrabold border-rose-400';
+    }
+
+    if (formattedDate === selectedDate) {
+      baseStyle += ' ring-2 ring-white scale-110';
+    }
+
+    return baseStyle;
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-black overflow-y-auto pb-8 no-scrollbar">
       
-      {/* Date Selector Header - Fixed look but scrolls with page */}
+      {/* Date Selector Header */}
       <div className="flex justify-between items-center py-4 px-4 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 border-b border-zinc-900">
         <button 
           onClick={() => adjustDate(-1)}
@@ -155,9 +267,15 @@ export const Journal: React.FC = () => {
           <ChevronLeft className="h-5 w-5" />
         </button>
         
-        <h2 className="text-lg font-display font-bold text-slate-100 select-none">
-          {formatJournalDate(selectedDate)}
-        </h2>
+        <button 
+          onClick={() => setCalendarOpen(!calendarOpen)}
+          className="flex items-center space-x-1.5 px-3 py-1 hover:bg-zinc-900 rounded-xl transition"
+        >
+          <h2 className="text-base font-display font-bold text-slate-100 select-none">
+            {formatJournalDate(selectedDate)}
+          </h2>
+          {calendarOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+        </button>
         
         <button 
           onClick={() => adjustDate(1)}
@@ -166,6 +284,73 @@ export const Journal: React.FC = () => {
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
+
+      {/* Collapsible Compliance Calendar Section */}
+      {calendarOpen && (
+        <div className="bg-zinc-950 border-b border-zinc-900 p-4 space-y-4 animate-in slide-in-from-top duration-200">
+          <div className="flex justify-between items-center px-1">
+            <button 
+              onClick={() => adjustCalendarMonth(-1)}
+              className="p-1 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-lg"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-display font-bold text-slate-200">
+              {monthNames[calendarMonth]} {calendarYear}
+            </span>
+            <button 
+              onClick={() => adjustCalendarMonth(1)}
+              className="p-1 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-lg"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Grid de Calendrier */}
+          <div className="grid grid-cols-7 gap-2 text-center text-xs">
+            {/* Jours de la semaine */}
+            {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((dayName) => (
+              <span key={dayName} className="text-[10px] font-bold text-slate-500 uppercase">{dayName}</span>
+            ))}
+
+            {/* Cellules de jours */}
+            {calendarCells.map((day, idx) => {
+              if (day === null) {
+                return <div key={`empty-${idx}`} />;
+              }
+
+              const formattedDate = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const isSelected = formattedDate === selectedDate;
+
+              return (
+                <button
+                  key={`day-${day}`}
+                  onClick={() => setSelectedDate(formattedDate)}
+                  className={`aspect-square w-full rounded-lg flex items-center justify-center text-xs font-semibold transition active:scale-90 ${getDateComplianceClass(day)}`}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Légende */}
+          <div className="flex justify-between items-center text-[10px] text-slate-500 pt-2 px-1 border-t border-zinc-900">
+            <span className="flex items-center space-x-1">
+              <span className="h-2.5 w-2.5 bg-emerald-500 rounded-full inline-block" />
+              <span>Atteint (±100 kcal)</span>
+            </span>
+            <span className="flex items-center space-x-1">
+              <span className="h-2.5 w-2.5 bg-amber-500 rounded-full inline-block" />
+              <span>Proche (±250 kcal)</span>
+            </span>
+            <span className="flex items-center space-x-1">
+              <span className="h-2.5 w-2.5 bg-rose-500 rounded-full inline-block" />
+              <span>Écart ({'>'}250 kcal)</span>
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 py-4 space-y-6 max-w-md mx-auto w-full">
         
@@ -211,7 +396,14 @@ export const Journal: React.FC = () => {
 
         {/* Dashboard Macros Card */}
         <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 space-y-5 shadow-lg backdrop-blur-sm">
-          <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase">Tableau des Macros</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-display font-bold text-slate-400 tracking-wide uppercase">Tableau des Macros</h3>
+            {settings?.calorieGoalMode === 'manual' && (
+              <span className="text-[9px] bg-accent-violet/15 text-accent-violet px-2 py-0.5 rounded-md font-bold uppercase tracking-wide">
+                Cible Manuelle
+              </span>
+            )}
+          </div>
           
           <ProgressBar 
             label="Calories" 
@@ -246,7 +438,7 @@ export const Journal: React.FC = () => {
           </div>
         </div>
 
-        {/* Weight Tracker Card */}
+        {/* Weight Tracker Card + Goal progress */}
         <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-5 shadow-lg flex flex-col space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2.5">
@@ -280,6 +472,31 @@ export const Journal: React.FC = () => {
             />
             <span className="text-sm font-bold text-slate-500 pr-2">kg</span>
           </div>
+
+          {/* Target Weight Progress (Dynamic) */}
+          {settings?.targetWeight && (
+            <div className="border-t border-zinc-800/80 pt-3.5 mt-1 space-y-2">
+              <div className="flex justify-between items-baseline text-xs">
+                <span className="text-slate-400 font-semibold flex items-center space-x-1.5">
+                  <TrendingDown className="h-3.5 w-3.5 text-accent-violet" />
+                  <span>Objectif de Poids</span>
+                </span>
+                <span className="font-bold text-slate-300">
+                  {settings.targetWeight} kg {settings.targetWeightDate && `d'ici le ${new Date(settings.targetWeightDate + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`}
+                </span>
+              </div>
+              
+              {currentDay?.smoothedWeight && (
+                <div className="text-[10px] text-slate-500 font-semibold flex items-center justify-between">
+                  <span>Écart actuel :</span>
+                  <span className="text-slate-300 tabular-nums">
+                    {Math.abs(currentDay.smoothedWeight - settings.targetWeight).toFixed(2)} kg
+                    {currentDay.smoothedWeight > settings.targetWeight ? ' à perdre' : ' à prendre'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Food Log Entries Card */}
@@ -309,7 +526,11 @@ export const Journal: React.FC = () => {
                 return (
                   <div 
                     key={entry.id}
-                    className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4 flex justify-between items-center shadow-sm relative group active:bg-zinc-900 transition duration-150"
+                    onClick={() => {
+                      setViewingEntry(entry);
+                      setEditWeight(entry.weight.toString());
+                    }}
+                    className="bg-zinc-900/50 border border-zinc-800/50 hover:border-zinc-700/60 rounded-2xl p-4 flex justify-between items-center shadow-sm relative group active:bg-zinc-900 transition duration-150 cursor-pointer"
                   >
                     <div className="space-y-1 flex-1 pr-4 min-w-0">
                       <p className="text-sm font-semibold text-slate-200 truncate">{details.name}</p>
@@ -329,7 +550,10 @@ export const Journal: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => removeEntry(selectedDate, entry.id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Évite d'ouvrir la modale de détails
+                        removeEntry(selectedDate, entry.id);
+                      }}
                       className="p-2.5 text-zinc-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition active:scale-90"
                       aria-label="Supprimer"
                     >
@@ -343,6 +567,172 @@ export const Journal: React.FC = () => {
         </div>
 
       </div>
+
+      {/* ==========================================
+          MODALE DETAILED DRAWER (SWIPE UP LOOK)
+         ========================================== */}
+      {viewingEntry && (() => {
+        const details = getEntryDetails(viewingEntry);
+        if (!details) return null;
+
+        // Trouver la recette ou l'aliment correspondant si besoin d'infos supplémentaires
+        let recipeNotes = '';
+        let recipeIngredientsList: Array<{ name: string; weight: number }> = [];
+
+        if (viewingEntry.type === 'recipe') {
+          const recipe = recipes.find(r => r.id === viewingEntry.recipeId);
+          if (recipe) {
+            recipeNotes = recipe.notes || '';
+            recipeIngredientsList = recipe.ingredients.map(ing => {
+              const food = customFoods.find(f => f.id === ing.foodId);
+              return {
+                name: food ? food.name : 'Aliment inconnu',
+                weight: ing.rawWeight
+              };
+            });
+          }
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center">
+            <div className="bg-zinc-950 border-t border-zinc-800 w-full max-w-md rounded-t-3xl p-6 space-y-6 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-200">
+              
+              {/* Header de la modale */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    {viewingEntry.type === 'food' ? 'Aliment Consommé' : viewingEntry.type === 'recipe' ? 'Recette Consommée' : 'Ajout Direct'}
+                  </span>
+                  <h4 className="text-lg font-display font-extrabold text-slate-100">{details.name}</h4>
+                </div>
+                <button 
+                  onClick={() => { setViewingEntry(null); setEditWeight(''); }}
+                  className="p-1.5 bg-zinc-900 text-slate-400 hover:text-slate-200 rounded-full"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Contenu de la fiche */}
+              <div className="space-y-4">
+                
+                {/* Résumé Macros Portion */}
+                <div className="bg-zinc-900 p-4 border border-zinc-800 rounded-2xl grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <span className="text-[9px] text-slate-500 font-bold uppercase block">Calories</span>
+                    <span className="text-sm font-display font-extrabold text-slate-100 tabular-nums">{Math.round(details.calories)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-500 font-bold uppercase block">Prot</span>
+                    <span className="text-sm font-display font-extrabold text-slate-100 tabular-nums">{Math.round(details.protein)}g</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-500 font-bold uppercase block">Gluc</span>
+                    <span className="text-sm font-display font-extrabold text-slate-100 tabular-nums">{Math.round(details.carbs)}g</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-500 font-bold uppercase block">Lip</span>
+                    <span className="text-sm font-display font-extrabold text-slate-100 tabular-nums">{Math.round(details.fat)}g</span>
+                  </div>
+                </div>
+
+                {/* Si c'est une Recette : Afficher les notes & ingrédients */}
+                {viewingEntry.type === 'recipe' && (
+                  <div className="space-y-3">
+                    
+                    {/* Notes de préparation */}
+                    {recipeNotes && (
+                      <div className="bg-zinc-900/60 p-4 border border-zinc-800 rounded-2xl space-y-1">
+                        <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Instructions de préparation</h5>
+                        <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{recipeNotes}</p>
+                      </div>
+                    )}
+
+                    {/* Liste Ingrédients Crus */}
+                    {recipeIngredientsList.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wide px-1">Composition (Poids Crus)</h5>
+                        <div className="bg-zinc-900/40 rounded-2xl p-3.5 border border-zinc-800/80 space-y-2 max-h-36 overflow-y-auto">
+                          {recipeIngredientsList.map((ing, i) => (
+                            <div key={i} className="flex justify-between items-center text-xs text-slate-400">
+                              <span className="truncate pr-2 font-medium">• {ing.name}</span>
+                              <span className="font-semibold tabular-nums shrink-0">{ing.weight}g</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                {/* Saisie de Modification de la portion */}
+                {viewingEntry.type !== 'quick-add' && (
+                  <form onSubmit={handleEditPortionSubmit} className="border-t border-zinc-900 pt-4 space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Modifier la portion consommée (g)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          pattern="[0-9]*"
+                          required
+                          value={editWeight}
+                          onChange={(e) => setEditWeight(e.target.value)}
+                          className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-center text-xl font-display font-extrabold text-slate-200 focus:outline-none focus:border-accent-teal transition"
+                        />
+                        <span className="absolute right-4 top-3 text-xs font-bold text-slate-500">g</span>
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-3">
+                      {/* Supprimer de l'historique */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          removeEntry(selectedDate, viewingEntry.id);
+                          setViewingEntry(null);
+                        }}
+                        className="flex-1 h-12 bg-rose-950/35 border border-rose-900/50 hover:bg-rose-900/20 text-rose-400 font-semibold rounded-2xl active:scale-95 transition flex items-center justify-center space-x-2"
+                      >
+                        <Trash2 className="h-4.5 w-4.5" />
+                        <span>Supprimer</span>
+                      </button>
+
+                      {/* Mettre à jour */}
+                      <button
+                        type="submit"
+                        className="flex-1 h-12 bg-accent-teal text-white font-display font-bold rounded-2xl shadow-lg active:scale-98 transition duration-150"
+                      >
+                        Mettre à jour
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Si Quick Add, pas de portion modifiable, juste suppression */}
+                {viewingEntry.type === 'quick-add' && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeEntry(selectedDate, viewingEntry.id);
+                        setViewingEntry(null);
+                      }}
+                      className="w-full h-12 bg-rose-950/35 border border-rose-900/50 hover:bg-rose-900/20 text-rose-400 font-semibold rounded-2xl active:scale-95 transition flex items-center justify-center space-x-2"
+                    >
+                      <Trash2 className="h-4.5 w-4.5" />
+                      <span>Supprimer du Journal</span>
+                    </button>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
     </div>
   );
 };

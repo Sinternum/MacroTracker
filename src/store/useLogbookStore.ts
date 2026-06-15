@@ -39,6 +39,7 @@ export interface LogbookState {
   // Actions du journal (entrées et poids)
   addEntry: (date: string, entry: Omit<LogbookEntry, 'id'>) => Promise<void>;
   removeEntry: (date: string, entryId: string) => Promise<void>;
+  updateEntryWeight: (date: string, entryId: string, weight: number) => Promise<void>;
   updateDailyWeight: (date: string, weight: number | null) => Promise<void>;
 
   // Actions de gestion des aliments personnalisés
@@ -83,9 +84,35 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
           macroSplit: { protein: 30, carbs: 40, fat: 30 },
           macroSplitType: 'percentage',
           defaultTDEE: 2200,
-          smoothedWeight: null
+          smoothedWeight: null,
+          calorieGoalMode: 'dynamic',
+          manualCalorieGoal: null,
+          targetWeight: null,
+          targetWeightDate: null
         };
         await db.settings.add(settings);
+      } else {
+        // Migration à la volée des champs manquants pour éviter de planter si la DB existait déjà
+        let updated = false;
+        if (settings.calorieGoalMode === undefined) {
+          settings.calorieGoalMode = 'dynamic';
+          updated = true;
+        }
+        if (settings.manualCalorieGoal === undefined) {
+          settings.manualCalorieGoal = null;
+          updated = true;
+        }
+        if (settings.targetWeight === undefined) {
+          settings.targetWeight = null;
+          updated = true;
+        }
+        if (settings.targetWeightDate === undefined) {
+          settings.targetWeightDate = null;
+          updated = true;
+        }
+        if (updated) {
+          await db.settings.put(settings);
+        }
       }
 
       // 2. Charger les aliments et recettes
@@ -177,6 +204,25 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
       }
     } catch (err: any) {
       set({ error: err.message || "Erreur lors de la suppression de l'entrée." });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  updateEntryWeight: async (date: string, entryId: string, weight: number) => {
+    set({ isLoading: true, error: null });
+    try {
+      const day = await db.logbook.get(date);
+      if (day) {
+        day.entries = day.entries.map(e => e.id === entryId ? { ...e, weight } : e);
+        await db.logbook.put(day);
+
+        if (date === get().selectedDate) {
+          set({ currentDay: day });
+        }
+      }
+    } catch (err: any) {
+      set({ error: err.message || "Erreur lors de la mise à jour de la portion." });
     } finally {
       set({ isLoading: false });
     }
@@ -421,6 +467,9 @@ export const useLogbookStore = create<LogbookState>((set, get) => ({
  */
 export const getTargetCalories = (settings: UserSettings | null): number => {
   if (!settings) return 0;
+  if (settings.calorieGoalMode === 'manual' && settings.manualCalorieGoal) {
+    return Math.max(1200, settings.manualCalorieGoal);
+  }
   return Math.max(1200, settings.defaultTDEE - settings.targetDeficit);
 };
 
