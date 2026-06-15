@@ -191,10 +191,10 @@ export const AddView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black ios-scroll pb-10 no-scrollbar relative">
+    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-hidden relative">
       
       {/* Segmented Control Header style iOS */}
-      <div className="bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 pt-[calc(env(safe-area-inset-top)+0.875rem)] pb-3.5 px-4 border-b border-zinc-900">
+      <div className="bg-zinc-950/80 backdrop-blur-md pt-[calc(env(safe-area-inset-top)+0.875rem)] pb-3.5 px-4 border-b border-zinc-900 shrink-0">
         <div className="max-w-md mx-auto w-full bg-zinc-900 p-1 rounded-2xl flex justify-between items-center text-xs font-semibold">
           <button
             onClick={() => setSubTab('foods')}
@@ -230,6 +230,8 @@ export const AddView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <div className="flex-1 ios-scroll pb-10 no-scrollbar">
 
       <div className="px-4 py-4 max-w-md mx-auto w-full flex-1">
         
@@ -427,6 +429,8 @@ export const AddView: React.FC = () => {
             </button>
           </form>
         )}
+
+      </div>
 
       </div>
 

@@ -246,10 +246,10 @@ export const Journal: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black ios-scroll pb-8 no-scrollbar">
+    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-hidden">
       
       {/* Date Selector Header */}
-      <div className="flex justify-between items-center pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 border-b border-zinc-900">
+      <div className="flex justify-between items-center pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 shrink-0">
         <button 
           onClick={() => adjustDate(-1)}
           className="p-2 text-slate-400 hover:text-slate-100 bg-zinc-900 active:bg-zinc-800 rounded-xl transition"
@@ -274,6 +274,8 @@ export const Journal: React.FC = () => {
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
+
+      <div className="flex-1 ios-scroll pb-8 no-scrollbar">
 
       {/* Collapsible Compliance Calendar Section */}
       {calendarOpen && (
@@ -557,6 +559,8 @@ export const Journal: React.FC = () => {
             </div>
           )}
         </div>
+
+      </div>
 
       </div>
 

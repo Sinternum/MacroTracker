@@ -155,14 +155,16 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-black ios-scroll pb-10 no-scrollbar">
+    <div className="flex-1 flex flex-col min-h-0 bg-black overflow-hidden">
       
       {/* Header fixe */}
-      <div className="bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 border-b border-zinc-900 text-center">
+      <div className="bg-zinc-950/80 backdrop-blur-md pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 border-b border-zinc-900 text-center shrink-0">
         <h2 className="text-lg font-display font-bold text-slate-100 select-none">
           Réglages Métaboliques
         </h2>
       </div>
+
+      <div className="flex-1 ios-scroll pb-10 no-scrollbar">
 
       <div className="px-4 py-4 space-y-6 max-w-md mx-auto w-full">
         
@@ -471,6 +473,7 @@ export const SettingsView: React.FC = () => {
           )}
         </div>
 
+      </div>
       </div>
     </div>
   );
